@@ -1,0 +1,7 @@
+data/*
+!data/prompts
+!data/experiment_parameters.yaml
+
+.vscode/
+
+__pycache__

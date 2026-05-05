@@ -1,0 +1,37 @@
+[project]
+name = "extraction-benchmark"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "argparse>=1.4.0",
+    "async-graph-data-flow>=2.0.0",
+    "easyocr>=1.7.2",
+    "loguru>=0.7.3",
+    "numpy>=2.4.4",
+    "ollama>=0.6.2",
+    "pandas>=3.0.2",
+    "pdf2image>=1.17.0",
+    "pyyaml>=6.0.3",
+]
+
+
+[project.scripts]
+bench = "extraction_benchmark.main:main"
+
+[build-system]
+requires = ["uv_build>=0.8.19,<0.9.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.2.0",
+    "pandas-stubs>=3.0.0.260204",
+    "ruff>=0.15.12",
+    "types-pyyaml>=6.0.12.20260408",
+]
+
+[tool.ruff]
+indent-width = 2
+lint.select = ["E", "F", "S"]
