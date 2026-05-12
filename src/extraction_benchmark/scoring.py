@@ -2,6 +2,8 @@ import json
 import asyncio
 from copy import deepcopy
 import pandas as pd
+from typing import Any
+import re
 
 
 # def filter_reference_data(reference_data: dict, allowed_fields: list[str]) -> dict:
@@ -121,41 +123,149 @@ def _align_strings(
   return (matches, mismatches, insertions, deletions)
 
 
-def mask_reference_data(reference_data: dict, allowed_fields: list[str]) -> dict:
+def normalize_string(value: str) -> str:
+  value = value.strip().upper()
+  rules = [
+    r"NM_\d+(\.\d+)?",  # remove version numbers from transcripts
+    r"UNCERTAIN (CLINICAL )?SIGNIFICANCE (\(VUS\))?",  # normalize VUS label
+    r"^\d{4}-\d{2}-\d{2}(.*)?",  # remove hours, minutes, seconds from dates
+  ]
+  for rule in rules:
+    value = _remove_group_matches(value, rule)
+  return value
+
+
+def _remove_group_matches(value: str, rx: str) -> str:
+  """
+  Removes text captured by regex groups.
+
+  Example: _remove_group_matches("ABCDE","B(C)?D") == "ABDE"
+
+  Args:
+      value: The string to process
+      rx: The regular expression string containing groups
+
+  Returns:
+      String with group matches removed, or original string if
+      no groups exist or no match found.
+  """
+  pattern = re.compile(rx)
+
+  # Return unchanged if no groups in regex
+  if pattern.groups == 0:
+    return value
+
+  # Return unchanged if pattern doesn't match
+  if not pattern.search(value):
+    return value
+
+  result_parts = []
+  last_end = 0
+
+  for match in pattern.finditer(value):
+    # Add text between previous match and current match
+    result_parts.append(value[last_end : match.start()])
+
+    # Collect spans of all participating groups (absolute positions)
+    spans = []
+    for i in range(1, pattern.groups + 1):
+      start = match.start(i)
+      if start != -1:  # Group participated in this match
+        spans.append((start, match.end(i)))
+
+    if not spans:
+      # Groups exist but didn't capture anything (e.g., optional groups)
+      result_parts.append(match.group(0))
+    else:
+      # Sort and merge overlapping/adjacent spans to handle nested groups
+      spans.sort()
+      merged = [spans[0]]
+      for current in spans[1:]:
+        last = merged[-1]
+        if current[0] <= last[1]:  # Overlap detected
+          merged[-1] = (last[0], max(last[1], current[1]))
+        else:
+          merged.append(current)
+
+      # Reconstruct the match with group contents removed
+      match_start = match.start(0)
+      new_parts = []
+      current_pos = match_start
+
+      for start, end in merged:
+        # Keep text between previous position and group start
+        new_parts.append(value[current_pos:start])
+        current_pos = end
+
+      # Keep text after last group until end of match
+      new_parts.append(value[current_pos : match.end(0)])
+      result_parts.append("".join(new_parts))
+
+    last_end = match.end(0)
+
+  # Add remaining text after last match
+  result_parts.append(value[last_end:])
+  return "".join(result_parts)
+
+
+def _mask_field_value(value: Any, field_state: str) -> Any:
+  match field_state:
+    case "direct" | "indirect":
+      return value
+    case "unavailable":
+      return ""
+    case "no_eval":
+      return "<no_eval>"
+    case other_state:
+      raise Exception(f"Unsupported field state: {other_state}")
+
+
+def mask_reference_data(reference_data: dict, field_states: dict[str, str]) -> dict:
   """
   Apply allowed fields mask to reference data (based on pdf template)
   """
   # make sure we don't delete anything from the original reference data
   out = deepcopy(reference_data)
+
+  # start by removing fields that are not requested in the extraction prompt
+  # namely, num_variants, mega_hgvs, mafan and mafac
+  del out["num_variants"]
+  if isinstance(out["variants"], list):
+    for var_dict in out["variants"]:
+      del var_dict["mega_hgvs"]
+      del var_dict["mafan"]
+      del var_dict["mafac"]
+      var_dict["maf"] = var_dict["mafaf"]
+      del var_dict["mafaf"]
+
+  # correct the value of dates to their actual document interpolations
+  # out["date_collected"] = out["date_collected"].split(" ")[0]
+  # out["date_received"] = out["date_received"].split(" ")[0]
+  # out["date_verified"] = out["date_verified"].split(" ")[0]
+
   for field_name, value in out.items():
-    if field_name not in allowed_fields:
-      out[field_name] = ""
-    elif isinstance(value, list):
-      for sub_dict in value:
-        if isinstance(sub_dict, dict):
-          for sub_field_name in sub_dict.keys():
-            if sub_field_name not in allowed_fields:
-              sub_dict[sub_field_name] = ""
+    match field_name, value:
+      case "variants", list():
+        for sub_dict in value:
+          if isinstance(sub_dict, dict):
+            for sub_field_name in sub_dict.keys():
+              sub_dict[sub_field_name] = _mask_field_value(
+                sub_dict[sub_field_name], field_states[sub_field_name]
+              )
+      case "tested_genes", dict():
+        for sub_dict in value.values():
+          if isinstance(sub_dict, dict):
+            for sub_field_name in sub_dict.keys():
+              sub_dict[sub_field_name] = _mask_field_value(
+                sub_dict[sub_field_name], field_states[sub_field_name]
+              )
+      case _, _:
+        out[field_name] = _mask_field_value(out[field_name], field_states[field_name])
   return out
 
 
-"""
-"tested_genes": {       #dict of dicts
- "PSIP1": {
- "gene_symbol": "PSIP1",
-"refseq_mrna": "NM_033222.5" 
-},
 
-"variants": [          #list of dicts
- {
- "gene_symbol": "JMJD1C",
-"variant_id": "VCV007184459",
-"chromosome": "chr10",
-"hgvsg": "g.63172803A>G",
-"""
-
-
-async def score_response(response: dict, reference: dict) -> pd.DataFrame:
+def score_response(response: dict, reference: dict) -> pd.DataFrame:
   """
   Score the correctness of the response relative to the reference data.
 
@@ -180,20 +290,27 @@ async def score_response(response: dict, reference: dict) -> pd.DataFrame:
   # next, check if fields are missing
   for key in reference.keys():
     if key not in response:
+      expected = "<collection>" if key in ["tested_genes","variants"] else reference[key]
       scores.append(
-        dict(ref=key, expected=reference[key], found=None, tp=0, fp=0, fn=1)
+        dict(ref=key, expected=expected, found=None, tp=0, fp=0, fn=1)
       )
 
   # next, check if the values match
   for key, val in response.items():
-    if key in reference:
+    if key in reference and reference[key] != "<no_eval>":
       match key, val:
         case "variants", list():
-          scores.extend(score_variant_list(val, reference[key]))
-          pass
+          # check if the entire list should be omitted from evaluation
+          skip_all = all(v == "<no_eval>" for d in reference[key] for v in d.values())
+          if not skip_all:
+            scores.extend(score_variant_list(val, reference[key]))
         case "tested_genes", dict():
-          scores.extend(score_genes_dict(val, reference[key]))
-          pass
+          # check if the entire list should be omitted from evaluation
+          skip_all = all(
+            v == "<no_eval>" for d in reference[key].values() for v in d.values()
+          )
+          if not skip_all:
+            scores.extend(score_genes_dict(val, reference[key]))
         case (_, list()) | (_, dict()):
           # a list or dict with a different name, not allowed!
           scores.append(
@@ -201,30 +318,42 @@ async def score_response(response: dict, reference: dict) -> pd.DataFrame:
               ref=key, expected=reference[key], found=json.dumps(val), tp=0, fp=1, fn=0
             )
           )
-          pass
+        case (
+          ("report_type", _)
+          | ("testing_context", _)
+          | ("sequencing_scope", _)
+          | ("ordering_clinic", _)
+          | ("testing_laboratory", _)
+          | ("analysis_type", _)
+          | ("sample_type", _)
+          | ("analysis_type", _)
+        ):
+          scores.append(score_strings(key, str(val), str(reference[key]), exact=False))
         case _, _:
           scores.append(score_strings(key, str(val), str(reference[key])))
 
   return pd.DataFrame(scores)
 
 
-def score_strings(field_name: str, found: str, expected: str) -> dict:
-  found = found.strip()
-  expected = expected.strip()
+def score_strings(field_name: str, found: str, expected: str, exact=True) -> dict:
+  found = normalize_string(found)
+  expected = normalize_string(expected)
   if found == expected:
     return dict(ref=field_name, expected=expected, found=found, tp=1, fp=0, fn=0)
-  elif found == "":
+  elif expected and not found:
     return dict(ref=field_name, expected=expected, found="", tp=0, fp=0, fn=1)
-  elif expected == "":
+  elif found and not expected:
     return dict(ref=field_name, expected="", found=found, tp=0, fp=1, fn=0)
-
-  matches, mismatches, insertions, deletions = _align_strings(
-    expected.upper(), found.upper()
-  )
-  fp = (insertions + mismatches) / len(found)
-  fn = (deletions + mismatches) / len(expected)
-  tp = matches / len(expected)
-  return dict(ref=field_name, expected=expected, found=found, tp=tp, fp=fp, fn=fn)
+  elif exact:
+    return dict(ref=field_name, expected=expected, found=found, tp=0, fp=1, fn=1)
+  else:
+    matches, mismatches, insertions, deletions = _align_strings(
+      expected.upper(), found.upper()
+    )
+    fp = (insertions + mismatches) / len(found)
+    fn = (deletions + mismatches) / len(expected)
+    tp = matches / len(expected)
+    return dict(ref=field_name, expected=expected, found=found, tp=tp, fp=fp, fn=fn)
 
 
 def _var_label(variant: dict) -> str:
@@ -232,7 +361,7 @@ def _var_label(variant: dict) -> str:
   Create an identifying label for a variant dict, e.g. BRCA1:c.123A>C.
   if gene_symbol or hgvsc are not defined, label segment will be "None"
   """
-  return f"{variant.get('gene_symbol'):{variant.get('hgvsc')}}"
+  return f"{variant.get('gene_symbol')}:{variant.get('hgvsc')}"
 
 
 def _greedy_pairings(
@@ -292,6 +421,13 @@ def _greedy_pairings(
 def score_variant_list(found: list[dict], expected: list[dict]) -> list[dict]:
   score_entries: list[dict] = []
 
+  # if there reference omits the list entirely, score it as a FP
+  if not isinstance(expected, list):
+    score_entries.append(
+      dict(ref="variants", expected=None, found="<list>", tp=0, fp=1, fn=0)
+    )
+    return score_entries
+
   # greedily pair up the two variant lists based on gene symbol and HGVS
   found2exp, exp2found = _greedy_pairings(
     [_var_label(var) for var in found], [_var_label(var) for var in expected]
@@ -348,7 +484,7 @@ def score_variant_list(found: list[dict], expected: list[dict]) -> list[dict]:
         score_entries.append(
           dict(ref=f"variants[{i}].{key}", expected=None, found=key, tp=0, fp=1, fn=0)
         )
-      else:
+      elif exp_var[key] != "<no_eval>":
         score_entries.append(score_strings(key, str(found_var[key]), str(exp_var[key])))
 
   return score_entries
@@ -356,6 +492,13 @@ def score_variant_list(found: list[dict], expected: list[dict]) -> list[dict]:
 
 def score_genes_dict(found: dict, expected: dict) -> list[dict]:
   score_entries: list[dict] = []
+
+  # if the reference doesn't have any, then score FP
+  if not isinstance(expected, dict):
+    score_entries.append(
+      dict(ref="tested_genes", expected=None, found="<dict>", tp=0, fp=1, fn=0)
+    )
+    return score_entries
 
   found_keys = list(found.keys())
   exp_keys = list(expected.keys())
@@ -368,14 +511,74 @@ def score_genes_dict(found: dict, expected: dict) -> list[dict]:
   }
 
   # Check for missing keys and report them as FN
+  for ek in exp_keys:
+    if exp2found[ek] is None:
+      score_entries.append(
+        dict(
+          ref=f"tested_genes.{ek}",
+          expected=ek,
+          found=None,
+          tp=0,
+          fp=0,
+          fn=1,
+        )
+      )
 
   # Check for surplus or matching keys and report them
+  for fk in found_keys:
+    ek = found2exp[fk]
+    if ek is None:
+      score_entries.append(
+        dict(
+          ref=f"tested_genes.{fk}",
+          expected=None,
+          found=fk,
+          tp=0,
+          fp=1,
+          fn=0,
+        )
+      )
+      continue
+
+    # otherwise it's a match
+    exp_gene = expected[ek]
+    found_gene = found[fk]
+
+    # check for missing keys (FN)
+    for key in exp_gene.keys():
+      if key not in exp_gene:
+        score_entries.append(
+          dict(ref=f"variants.{ek}.{key}", expected=key, found=None, tp=0, fp=0, fn=1)
+        )
+    # process remaining keys (matching or surplus)
+    for key in found_gene.keys():
+      if key not in exp_keys:
+        score_entries.append(
+          dict(ref=f"variants.{ek}.{key}", expected=None, found=key, tp=0, fp=1, fn=0)
+        )
+      elif exp_gene[key] != "<no_eval>":
+        score_entries.append(
+          score_strings(key, str(found_gene[key]), str(exp_gene[key]))
+        )
 
   return score_entries
 
 
-async def summarize_score(scores: dict) -> dict:
-  return {}
+def summarize_score(score_table: pd.DataFrame) -> dict:
+  tpsum = score_table["tp"].sum()
+  fpsum = score_table["fp"].sum()
+  fnsum = score_table["fn"].sum()
+  recall = tpsum / (tpsum + fnsum)
+  precision = tpsum / (tpsum + fpsum)
+  summary = dict(
+    tp=tpsum,
+    fp=fpsum,
+    fn=fnsum,
+    recall=recall,
+    precision=precision,
+    f1=2.0 / (1.0 / recall + 1.0 / precision),
+  )
+  return summary
 
 
 async def fetch_experiment_result(experiment: dict) -> dict:

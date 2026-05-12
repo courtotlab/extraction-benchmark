@@ -19,8 +19,8 @@ from extraction_benchmark.ocr import (
 from extraction_benchmark.scoring import (
   mask_reference_data,
   score_response,
-  summarize_score,
   fetch_experiment_result,
+  summarize_score,
 )
 
 
@@ -100,6 +100,27 @@ def _parse_yaml(param_path: Path) -> dict:
     sys.exit(1)
 
   return exp_params
+
+
+def _parse_template_fields_csv(path: Path, templates: list[str]) -> pd.DataFrame:
+  logger.info(f"Reading {path}")
+  try:
+    df = pd.read_csv(path)
+  except Exception as e:
+    logger.error(f"Unable to parse template fields file: {e}")
+    sys.exit(1)
+
+  if "labels" not in df.columns:
+    logger.error("Missing row labels in template_fields file")
+    sys.exit(1)
+  df.set_index("labels", inplace=True)
+
+  missing = [name for name in templates if name not in df.columns]
+  if missing:
+    logger.error(f"Missing templates from template_fields file: {', '.join(missing)}")
+    sys.exit(1)
+
+  return df
 
 
 def _move_if_needed(src: Path, dest: Path) -> Path:
@@ -199,7 +220,7 @@ def setup_pipeline(
   exp_params: dict,
 ) -> AsyncExecutor:
   """
-  Build an asynchronous execution pipeline capabale of running all
+  Build an asynchronous execution pipeline capable of running all
   stages in parallel
 
   """
@@ -223,9 +244,8 @@ def setup_pipeline(
     doc_id = experiment["doc_id"]
     pdf_original = input_dir / str(doc_id) / f"{doc_id}_original.pdf"
     pdf_distressed = input_dir / str(doc_id) / f"{doc_id}_distressed.pdf"
-    # TODO: make the image/ocr async
-    extract_image_and_ocr(pdf_original, ocr)
-    extract_image_and_ocr(pdf_distressed, ocr)
+    await extract_image_and_ocr(pdf_original, ocr)
+    await extract_image_and_ocr(pdf_distressed, ocr)
     yield experiment
 
   dag.add_node(ocr_layer)
@@ -235,6 +255,7 @@ def setup_pipeline(
     out_file = out_dir / f"{experiment['run_id']}_llm_result.json"
     if out_file.exists():
       logger.debug(f"Skipping experiment {experiment['run_id']}!")
+      experiment["result"] = out_file
       yield experiment
     else:
       logger.debug(f"Running experiment {experiment['run_id']}")
@@ -249,26 +270,26 @@ def setup_pipeline(
 
   # Layer 4: Score the LLM output
   async def scoring_layer(experiment):
-    logger.debug(f"Scoring response for {experiment['run_id']}")
-    result = await fetch_experiment_result(experiment)
-    # filter down the reference data to the fields compatible with the
-    # lab-specific document template
-    expected_reference = mask_reference_data(
-      reference_data[str(experiment["doc_id"])],
-      exp_params["template_fields"][experiment["template"]],
-    )
-    scores = await score_response(result["response"], expected_reference)
-
-    # logger.debug(f"Archiving scores for {experiment['run_id']}")
-    out_file = out_dir / f"{experiment['run_id']}_scores.json"
-    # json.dump(scores, out_file)
-    with open(out_file, "w") as out:
-      await asyncio.to_thread(json.dump, scores, out)
-
-    experiment["scores"] = out_file
-    logger.debug(f"Archiving scores for {experiment['run_id']}")
-    score_summary = await summarize_score(scores)
-    yield score_summary
+    run_id = experiment["run_id"]
+    out_file = out_dir / f"{run_id}_scores.csv"
+    if out_file.exists():
+      logger.debug(f"Skipping existing scores for {run_id}")
+      yield
+    else:
+      logger.debug(f"Scoring response for {run_id}")
+      result = await fetch_experiment_result(experiment)
+      response = result.get("response")
+      if response:
+        # filter down the reference data to the fields compatible with the
+        # lab-specific document template
+        expected_reference = mask_reference_data(
+          reference_data[str(experiment["doc_id"])],
+          dict(exp_params["template_fields"][experiment["template"]]),
+        )
+        scores = score_response(response, expected_reference)
+        # logger.debug(f"Archiving scores for {run_id}")
+        await asyncio.to_thread(scores.to_csv, out_file)
+      yield
 
   dag.add_node(scoring_layer)
 
@@ -280,7 +301,69 @@ def setup_pipeline(
   return executor
 
 
-def main():
+def collect_results(experiments: pd.DataFrame, out_dir: Path) -> pd.DataFrame:
+  # Collect all the outputs in a final summary table
+  out_table = []
+  for i, experiment in experiments.iterrows():
+    # prepare an output row template
+    out_row = dict(experiment)
+    # set default values for when no result exists
+    out_row.update(
+      dict(
+        response="<failed>",
+        parsing="<failed>",
+        scores="<failed>",
+        processing_time=None,
+        input_chars=None,
+        output_chars=None,
+        tp=None,
+        fp=None,
+        fn=None,
+        sensitivity=None,
+        precision=None,
+        f1=None,
+      )
+    )
+
+    # check if successful output exists:
+    run_id = experiment["run_id"]
+    result_path = out_dir / f"{run_id}_llm_result.json"
+    if not result_path.exists():
+      continue
+    out_row["response"] = str(result_path)
+
+    # parse the result
+    try:
+      with open(result_path, "r") as infile:
+        result = json.load(infile)
+    except Exception:
+      continue
+    out_row["parsing"] = result.get("quality")
+    out_row["processing_time"] = result.get("processing_time")
+    out_row["input_chars"] = result.get("input_chars")
+    out_row["output_chars"] = result.get("output_chars")
+
+    # check if a score file exists
+    score_path = out_dir / f"{run_id}_scores.csv"
+    if not score_path.exists():
+      continue
+    out_row["scores"] = str(score_path)
+
+    # parse the scores
+    try:
+      score_data = pd.read_csv(score_path)
+    except Exception:
+      continue
+    score_summary = summarize_score(score_data)
+    out_row.update(score_summary)
+    # add the row to the output table
+    out_table.append(out_row)
+
+  # convert output to dataframe
+  return pd.DataFrame(out_table)
+
+
+def main() -> None:
   # parse command line arguments
   cli_args = _parse_args()
   input_dir = Path(cli_args.input)
@@ -289,6 +372,10 @@ def main():
   # read reference data file and experimental parameters
   reference_data = _read_json(input_dir / "mock_data.json")
   exp_params = _parse_yaml(input_dir.parent / "experiment_parameters.yaml")
+  template_fields = _parse_template_fields_csv(
+    input_dir.parent / "template_fields.csv", list(exp_params["labs"].keys())
+  )
+  exp_params["template_fields"] = template_fields
 
   # Cleanup the input data files
   cleanup_inputs(reference_data, input_dir)
@@ -307,10 +394,18 @@ def main():
   pipeline = setup_pipeline(experiments, input_dir, out_dir, reference_data, exp_params)
   pipeline.execute()
 
-  for node, es in pipeline.exceptions.items():
-    if es:
-      messages = [f" - {e}" for e in es[:10]]
-      logger.error(f"{node} had {len(es)} exceptions:\n{'\n'.join(messages)}")
+  # process any errors that may have occurred
+  if pipeline.exceptions is not None:
+    for node, es in pipeline.exceptions.items():
+      if es:
+        messages = [f" - {e}" for e in es[:10]]
+        logger.error(f"{node} had {len(es)} exceptions:\n{'\n'.join(messages)}")
+
+  # collect the outputs and write to file
+  out_df = collect_results(experiments, out_dir)
+  out_file = out_dir / "results.csv"
+  logger.success(f"Writing overall result table to {out_file}")
+  out_df.to_csv(out_file)
 
 
 if __name__ == "__main__":

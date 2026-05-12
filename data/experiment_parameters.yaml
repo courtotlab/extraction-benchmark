@@ -10,18 +10,6 @@ labs:
   uhn: University Health Network (Toronto)
   fakeHospital1: "Ontario Cancer Hospital (Toronto)"
   fakeHospital2: "Toronto Cancer Hospital (Toronto)"
-template_fields:
-  cheo: ["date_collected","date_received","date_verified","ordering_clinic","num_tested_genes","num_variants","gene_symbol","refseq_mrna","hgvsc","hgvsp","zygosity","interpretation","type"]
-  hamilton: ["date_collected","date_received","date_verified","sample_type","num_tested_genes","refseq_mrna","num_variants","gene_symbol","hgvsc","hgvsp","transcript_id","exon","zygosity","interpretation","type"]
-  sick_kids: ["num_tested_genes","reference_genome","gene_symbol","chromosome","hgvsg","hgvsc","hgvsp","transcript_id","exon","zygosity","interpretation","mafaf","mega_hgvs","type"]
-  kingston: ["date_collected","date_received","date_verified","testing_context","sample_type","num_tested_genes","refseq_mrna","num_variants","gene_symbol","hgvsc","hgvsp","transcript_id","interpretation","mafaf","mega_hgvs","type"]
-  london: ["date_received","date_verified","sample_type","num_tested_genes","num_variants","gene_symbol","hgvsc","hgvsp","exon","interpretation","mafaf","type"]
-  nygh: ["date_collected","date_received","date_verified","ordering_clinic","sample_type","sequencing_scope","num_tested_genes","refseq_mrna","num_variants","reference_genome","gene_symbol","hgvsc","hgvsp","exon","zygosity","interpretation","mafac","mafan","type"]
-  mt_sinai: ["date_collected","date_received","date_verified","testing_context","ordering_clinic","num_variants","gene_symbol","hgvsc","hgvsp","transcript_id","exon","zygosity","interpretation","mafac","mafan","mafaf"] 
-  trillium: ["date_collected","date_received","date_verified","sample_type","analysis_type","num_tested_genes","num_variants","gene_symbol","hgvsc","hgvsp","transcript_id","zygosity","interpretation","mafaf","type"]
-  uhn: ["date_collected","date_received","date_verified","sample_type","analysis_type","num_tested_genes","refseq_mrna","num_variants","reference_genome","gene_symbol","hgvsc","hgvsp","transcript_id","zygosity","interpretation","mafac","mafan","mafaf","type"]
-  fakeHospital1: ["date_collected","date_received","date_verified","testing_context","tested_genes","gene_symbol","num_tested_genes","sample_type","analysis_type","gene_symbol","variant_id","chromosome","hgvsc","hgvsp","transcript_id","exon","zygosity","interpretation","num_variants"]
-  fakeHospital2: ["date_collected","date_received","date_verified","report_type","testing_context","ordering_clinic","testing_laboratory","sequencing_scope","sample_type","analysis_type","num_tested_genes","refseq_mrna","num_variants","reference_genome","gene_symbol","variant_id","chromosome","hgvsg","hgvsc","hgvsp","transcript_id","exon","zygosity","interpretation","mafac","mafan","mafaf","mega_hgvs","type"]
 qualities:
   - original
   - distressed

@@ -185,6 +185,8 @@ async def run_experiment(experiment: dict, exp_param: dict, input_dir: Path) -> 
       doc_paths = [
         p for p in Path(input_dir / doc_id).glob(f"{doc_id}_original_page_*.png")
       ]
+      if not doc_paths:
+        raise Exception("No image files found!")
       image_data = [await _encode_image(path) for path in doc_paths]
       document_text = (
         "Extract the data from the document depicted in the attached images."
@@ -193,11 +195,14 @@ async def run_experiment(experiment: dict, exp_param: dict, input_dir: Path) -> 
       doc_paths = [
         p for p in Path(input_dir / doc_id).glob(f"{doc_id}_distressed_page_*.png")
       ]
+      if not doc_paths:
+        raise Exception("No image files found!")
       image_data = [await _encode_image(path) for path in doc_paths]
       document_text = (
         "Extract the data from the document depicted in the attached images."
       )
     case "ocr_text", "original":
+      # if the file is missing, let the error propagate naturally
       doc_path = Path(input_dir / doc_id / f"{doc_id}_original_ocr.txt")
       document_text = await asyncio.to_thread(doc_path.read_text)
     case "ocr_text", "distressed":

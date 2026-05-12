@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Callable, Any, List
 from loguru import logger
+import asyncio
 
 
 def move_if_not_yet_moved(src: Path, dest: Path) -> Path:
@@ -23,9 +24,9 @@ def move_if_not_yet_moved(src: Path, dest: Path) -> Path:
     raise Exception(f"Missing file: {src}")
 
 
-def extract_image_and_ocr(
+async def extract_image_and_ocr(
   pdf_file: Path, ocr: Callable[[Any], List[str]], dpi: int = 200
-) -> None:
+) -> int:
   """
   Extract images and OCR text from the given PDF file using the provided OCR function.
   Writes the output to the parent folder of the PDF file.
@@ -35,25 +36,35 @@ def extract_image_and_ocr(
     ocr(Callable): A function to be used for OCR processing. Takes a PIL.Image and
       returns a list of strings.
     dpi(int): The image resolution
+
+  Returns:
+    status(int):
+      -1 = complete failure;
+      0 = some errors occurred (partial success);
+      1 = success
   """
   image_file = pdf_file.parent / f"{pdf_file.stem}_page_01.png"
   ocr_text_file = pdf_file.parent / f"{pdf_file.stem}_ocr.txt"
 
   if image_file.exists() and ocr_text_file.exists():
     logger.debug(f"Images and OCR for {pdf_file} already exist -> Skipping.")
-    return
+    return 1
 
   logger.debug(f"Extracting images from {pdf_file}")
   try:
-    from pdf2image import convert_from_path  # lazy load
+    from pdf2image import convert_from_bytes  # lazy load
 
-    pages = convert_from_path(pdf_file, dpi=dpi)
+    pdf_bytes = await asyncio.to_thread(pdf_file.read_bytes)
+    pages = convert_from_bytes(pdf_bytes, dpi=dpi)
   except Exception as e:
     logger.error(f"Error converting PDF {pdf_file} to images: {e}")
-    return None
+    return -1
 
   # create a list to store the text pages
   pages_text: List[str] = []
+
+  # error counter
+  n_err = 0
 
   # iterate over page images
   for i, page in enumerate(pages):
@@ -61,7 +72,7 @@ def extract_image_and_ocr(
       # save image to PNG file
       image_file = pdf_file.parent / f"{pdf_file.stem}_page_{(i + 1):02}.png"
       logger.debug(f"Writing PNG image: {image_file}")
-      page.save(image_file, "PNG")
+      await asyncio.to_thread(page.save, image_file, "PNG")
 
       # process page with OCR and append to pages_text
       logger.debug("Running OCR")
@@ -70,10 +81,22 @@ def extract_image_and_ocr(
 
     except Exception as e:
       logger.warning(f"Error parsing {pdf_file} page {i + 1}: {e}")
+      n_err += 1
 
   # save OCR result to file
   logger.debug(f"Writing OCR output to {ocr_text_file}")
-  ocr_text_file.write_text("\n\n".join(pages_text))
+  try:
+    await asyncio.to_thread(ocr_text_file.write_text, "\n\n".join(pages_text))
+  except Exception:
+    logger.error("Failed to write OCR text to disk!")
+    n_err += 1
+
+  if n_err == 0:
+    return 1  # success
+  elif n_err > len(pages):
+    return -1  # total failure
+  else:
+    return 0  # partial failure
 
 
 def lazy_load_ocr_callable() -> Callable[[Any], List[str]]:

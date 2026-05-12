@@ -1,6 +1,7 @@
 data/*
 !data/prompts
 !data/experiment_parameters.yaml
+!data/template_fields.csv
 
 .vscode/
 
