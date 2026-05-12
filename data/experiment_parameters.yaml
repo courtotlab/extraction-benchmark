@@ -30,3 +30,6 @@ tools:
   "gemma3:27b": 
     env: ollama
     vision: true
+  "gpt-4.1-mini":
+    env: openai
+    vision: true

@@ -1,7 +1,8 @@
 import asyncio
 from pathlib import Path
 import base64
-import ollama
+from ollama import AsyncClient
+from openai import AsyncOpenAI
 import os
 from enum import Enum
 import json
@@ -36,10 +37,10 @@ def extract_json_from_response(response: str) -> dict[str, Any]:
   longest dict
 
   Args:
-      response: The raw LLM response string.
+    response: The raw LLM response string.
 
   Returns:
-      A list of successfully parsed JSON dictionaries.
+    A dictionary containing the parsed response and quality label
   """
   results = []
   json_quality = JsonQuality.UNPARSEABLE
@@ -128,22 +129,73 @@ def _clean_json_string(json_str: str) -> str:
   return cleaned
 
 
-async def run_ollama(model: str, messages: list[dict], temp: float = 0.0) -> str:
+async def run_ollama(
+  model: str, input_text: str, input_images: list[str] = [], temp: float = 0.0
+) -> str:
   """
   run the ollama model on the given message context.
 
   Args:
     model(str): the name of the ollama model
-    messages(list[dict]): the message context
+    input_text(str): the message input text
+    input_images(list[str]): list of base64 encoded image strings
+    temp: temperature parameter
   Returns:
     The response from the model
   """
+  message: dict[str, str | list | dict] = {
+    "role": "user",
+    "content": input_text,
+  }
+  if input_images:
+    message.update({"images": input_images})
+
   host = os.getenv("OLLAMA_HOST")
-  with ollama.Client(host) as client:
-    response = client.chat(
-      model=model, messages=messages, options={"temperature": temp}
-    )
+  # with AsyncClient(host) as client:
+  client = AsyncClient(host)
+  response = await client.chat(
+    model=model, messages=[message], options={"temperature": temp}
+  )
+  await client.close()
   return response["message"]["content"]
+
+
+async def run_openai(
+  model: str, input_text: str, input_images: list[str] = [], temp: float = 0.0
+) -> str:
+  """
+  run the openai model on the given message context.
+
+  Args:
+    model(str): the name of the ollama model
+    input_text(str): the message input text
+    input_images(list[str]): list of base64 encoded image strings
+    temp: temperature parameter
+  Returns:
+    The response from the model
+  """
+
+  msg_content = [{"type": "input_text", "text": input_text}]
+  if input_images:
+    for img in input_images:
+      msg_content.append(
+        {"type": "input_image", "image_url": f"data:image/png;base64,{img}"}
+      )
+
+  message: dict[str, str | list | dict] = {
+    "role": "user",
+    "content": msg_content,
+  }
+
+  client = AsyncOpenAI()
+  response = await client.responses.create(
+    model=model,
+    input=[message],  # type: ignore
+    temperature=temp,
+  )
+  await client.close()
+
+  return response.output_text
 
 
 async def _encode_image(path: Path) -> str:
@@ -179,7 +231,7 @@ async def run_experiment(experiment: dict, exp_param: dict, input_dir: Path) -> 
 
   doc_id = str(experiment["doc_id"])
 
-  image_data = None
+  image_data = []
   match experiment["modality"], experiment["quality"]:
     case "image", "original":
       doc_paths = [
@@ -188,9 +240,10 @@ async def run_experiment(experiment: dict, exp_param: dict, input_dir: Path) -> 
       if not doc_paths:
         raise Exception("No image files found!")
       image_data = [await _encode_image(path) for path in doc_paths]
-      document_text = (
+      img_instructions = (
         "Extract the data from the document depicted in the attached images."
       )
+      input_text = f"<instructions>\n{prompt_text}\n\n{img_instructions}</instructions>"
     case "image", "distressed":
       doc_paths = [
         p for p in Path(input_dir / doc_id).glob(f"{doc_id}_distressed_page_*.png")
@@ -198,19 +251,23 @@ async def run_experiment(experiment: dict, exp_param: dict, input_dir: Path) -> 
       if not doc_paths:
         raise Exception("No image files found!")
       image_data = [await _encode_image(path) for path in doc_paths]
-      document_text = (
+      img_instructions = (
         "Extract the data from the document depicted in the attached images."
       )
+      input_text = f"<instructions>\n{prompt_text}\n\n{img_instructions}</instructions>"
     case "ocr_text", "original":
       # if the file is missing, let the error propagate naturally
       doc_path = Path(input_dir / doc_id / f"{doc_id}_original_ocr.txt")
       document_text = await asyncio.to_thread(doc_path.read_text)
+      input_text = f"<instructions>\n{prompt_text}\n</instructions>\n\n<document>\n{document_text}\n</document>"
     case "ocr_text", "distressed":
       doc_path = Path(input_dir / doc_id / f"{doc_id}_distressed_ocr.txt")
       document_text = await asyncio.to_thread(doc_path.read_text)
+      input_text = f"<instructions>\n{prompt_text}\n</instructions>\n\n<document>\n{document_text}\n</document>"
     case "raw_text", _:
       doc_path = Path(input_dir / doc_id / f"{doc_id}_original_raw.md")
       document_text = await asyncio.to_thread(doc_path.read_text)
+      input_text = f"<instructions>\n{prompt_text}\n</instructions>\n\n<document>\n{document_text}\n</document>"
     case _, _:
       raise Exception(
         (
@@ -219,18 +276,12 @@ async def run_experiment(experiment: dict, exp_param: dict, input_dir: Path) -> 
         )
       )
 
-  message: dict[str, str | list | dict] = {
-    "role": "user",
-    "content": (
-      f"<instructions>\n{prompt_text}\n</instructions>\n\n"
-      f"<document>\n{document_text}\n</document>"
-    ),
-  }
-  if image_data:
-    message.update({"images": image_data})
-
   # measure number of characters in input
-  input_length = len(json.dumps(message))
+  input_length = len(json.dumps(input_text))
+  if image_data:
+    input_length += sum(len(img) for img in image_data)
+  # Note: 32x32px ~= 1 token, so 1700/2200px document page is ~3,652 tokens
+  # Whereas for text, 1 token ~= 4chars
 
   # figure out the runtime environment base on the model
   model = experiment["tool"]
@@ -242,7 +293,9 @@ async def run_experiment(experiment: dict, exp_param: dict, input_dir: Path) -> 
   # start the experiment
   match run_env:
     case "ollama":
-      response = await run_ollama(model, [message])
+      response = await run_ollama(model, input_text, image_data)
+    case "openai":
+      response = await run_openai(model, input_text, image_data)
     case _:
       raise Exception(f"Unsupported llm environment: {run_env}")
 
