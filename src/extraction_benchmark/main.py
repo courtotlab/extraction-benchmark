@@ -204,6 +204,9 @@ def _create_experimental_plan(reference_data: dict, exp_params: dict) -> pd.Data
     1, "template", [doc2lab[doc_id] for doc_id in experiments["doc_id"]]
   )
 
+  # sort by model to reduce ollama model load-time overhead
+  experiments.sort_values(by=["tool", "modality", "quality", "prompt"], inplace=True)
+
   # add a sequential run-id
   experiments.insert(
     0, "run_id", [f"EXP{i:06}" for i in range(1, experiments.shape[0] + 1)]
@@ -329,6 +332,8 @@ def collect_results(experiments: pd.DataFrame, out_dir: Path) -> pd.DataFrame:
     run_id = experiment["run_id"]
     result_path = out_dir / f"{run_id}_llm_result.json"
     if not result_path.exists():
+      # add the row to the output table
+      out_table.append(out_row)
       continue
     out_row["response"] = str(result_path)
 
@@ -337,6 +342,8 @@ def collect_results(experiments: pd.DataFrame, out_dir: Path) -> pd.DataFrame:
       with open(result_path, "r") as infile:
         result = json.load(infile)
     except Exception:
+      # add the row to the output table
+      out_table.append(out_row)
       continue
     out_row["parsing"] = result.get("quality")
     out_row["processing_time"] = result.get("processing_time")
@@ -346,6 +353,8 @@ def collect_results(experiments: pd.DataFrame, out_dir: Path) -> pd.DataFrame:
     # check if a score file exists
     score_path = out_dir / f"{run_id}_scores.csv"
     if not score_path.exists():
+      # add the row to the output table
+      out_table.append(out_row)
       continue
     out_row["scores"] = str(score_path)
 
@@ -353,6 +362,8 @@ def collect_results(experiments: pd.DataFrame, out_dir: Path) -> pd.DataFrame:
     try:
       score_data = pd.read_csv(score_path)
     except Exception:
+      # add the row to the output table
+      out_table.append(out_row)
       continue
     score_summary = summarize_score(score_data)
     out_row.update(score_summary)
