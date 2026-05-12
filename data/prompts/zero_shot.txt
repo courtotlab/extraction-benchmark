@@ -8,7 +8,7 @@ A. Clinical Testing Info
 - Analysis Type — The type of analysis performed. For example: Variant analysis, Karyotyping, Microarray, etc.
 - Sequencing Scope — The scope of the sequencing assay. Allowed values: "Gene panel", "Targeted variant testing", "Whole-Exome-Sequencing (WES)", "Whole-Genome-Sequencing (WGS)", "Whole-Transcriptome-Sequencing (WTS)"
 - Tested Genes — The list of gene symbols that were tested in the assay
-- RefSeq mRNA trancripts — The transcript identifier for the tested genes, in RefSeq format, e.g. "NM_000123.3"
+- RefSeq mRNA transcripts — The transcript identifier for the tested genes, in RefSeq format, e.g. "NM_000123.3"
 - Sample Type — The type of sample used in the assay. For example: "Amplified DNA", "ctDNA", "Total DNA", "Total RNA"
 
 B. Report Metadata
@@ -23,7 +23,10 @@ C. Variant Details
 - Variant ID — The OMIM, ClinVar, or dbSNP identifier for a variant. e.g. "VCV000055407.65"
 - Gene Symbol — The HGNC symbol for the gene in which the variant is located. e.g. BRCA1
 - Transcript ID — e.g., NM_000123.3
-- HGVS descriptors — These can be in genomic context (e.g. "g.43063903G>T"), Coding sequence context: (e.g. "c.5123C>A"), or Protein context (e.g. "p.Ala1708Glu")
+- HGVS descriptors — These descriptor strings encode the molecular basis of the variant in three contexts:
+  - hgvsg: The genomic context (e.g. "g.43063903G>T"), 
+  - hgvsc: The coding sequence context: (e.g. "c.5123C>A"), 
+  - hgvsp: The context in the translated protein (e.g. "p.Ala1708Glu")
 - Chromosome — the chromosome on which the variant is located, e.g. chr1, chr22, chrX, chrY
 - Exon — The exon within the gene in which the variant is located
 - Zygosity — Whether the variant was found in a homozygous, heterozygous, or compound heterozygous configuration.
