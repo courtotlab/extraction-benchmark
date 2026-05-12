@@ -264,7 +264,6 @@ def mask_reference_data(reference_data: dict, field_states: dict[str, str]) -> d
   return out
 
 
-
 def score_response(response: dict, reference: dict) -> pd.DataFrame:
   """
   Score the correctness of the response relative to the reference data.
@@ -290,10 +289,10 @@ def score_response(response: dict, reference: dict) -> pd.DataFrame:
   # next, check if fields are missing
   for key in reference.keys():
     if key not in response:
-      expected = "<collection>" if key in ["tested_genes","variants"] else reference[key]
-      scores.append(
-        dict(ref=key, expected=expected, found=None, tp=0, fp=0, fn=1)
+      expected = (
+        "<collection>" if key in ["tested_genes", "variants"] else reference[key]
       )
+      scores.append(dict(ref=key, expected=expected, found=None, tp=0, fp=0, fn=1))
 
   # next, check if the values match
   for key, val in response.items():
@@ -570,13 +569,14 @@ def summarize_score(score_table: pd.DataFrame) -> dict:
   fnsum = score_table["fn"].sum()
   recall = tpsum / (tpsum + fnsum)
   precision = tpsum / (tpsum + fpsum)
+  pc = 1e-9  # pseudocount to avoid division by zero errors
   summary = dict(
     tp=tpsum,
     fp=fpsum,
     fn=fnsum,
     recall=recall,
     precision=precision,
-    f1=2.0 / (1.0 / recall + 1.0 / precision),
+    f1=2.0 / ((1.0 + pc) / (recall + pc) + (1.0 + pc) / (precision + pc)),
   )
   return summary
 
