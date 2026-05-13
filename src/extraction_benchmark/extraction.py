@@ -225,58 +225,61 @@ async def run_experiment(experiment: dict, exp_param: dict, input_dir: Path) -> 
       'processing_time'(float), 'input_chars'(int), 'output_chars.(int)
   """
 
+  # Load the prompt text
   prompt_type = experiment["prompt"]
   prompt_file = Path(exp_param["prompts"][prompt_type])
   prompt_text = await asyncio.to_thread(prompt_file.read_text)
 
   doc_id = str(experiment["doc_id"])
 
-  image_data = []
+  # Prepare variables for the input document paths (images or text)
+  img_paths: list[Path] = []
+  doc_path: Path | None = None
+
+  # Pick the correct input document paths depending on modality and quality parameters
   match experiment["modality"], experiment["quality"]:
     case "image", "original":
-      doc_paths = [
+      img_paths = [
         p for p in Path(input_dir / doc_id).glob(f"{doc_id}_original_page_*.png")
       ]
-      if not doc_paths:
-        raise Exception("No image files found!")
-      image_data = [await _encode_image(path) for path in doc_paths]
-      img_instructions = (
-        "Extract the data from the document depicted in the attached images."
-      )
-      input_text = f"<instructions>\n{prompt_text}\n\n{img_instructions}</instructions>"
     case "image", "distressed":
-      doc_paths = [
+      img_paths = [
         p for p in Path(input_dir / doc_id).glob(f"{doc_id}_distressed_page_*.png")
       ]
-      if not doc_paths:
-        raise Exception("No image files found!")
-      image_data = [await _encode_image(path) for path in doc_paths]
-      img_instructions = (
-        "Extract the data from the document depicted in the attached images."
-      )
-      input_text = f"<instructions>\n{prompt_text}\n\n{img_instructions}</instructions>"
     case "ocr_text", "original":
       # if the file is missing, let the error propagate naturally
       doc_path = Path(input_dir / doc_id / f"{doc_id}_original_ocr.txt")
-      document_text = await asyncio.to_thread(doc_path.read_text)
-      input_text = f"<instructions>\n{prompt_text}\n</instructions>\n\n<document>\n{document_text}\n</document>"
     case "ocr_text", "distressed":
       doc_path = Path(input_dir / doc_id / f"{doc_id}_distressed_ocr.txt")
-      document_text = await asyncio.to_thread(doc_path.read_text)
-      input_text = f"<instructions>\n{prompt_text}\n</instructions>\n\n<document>\n{document_text}\n</document>"
     case "raw_text", _:
       doc_path = Path(input_dir / doc_id / f"{doc_id}_original_raw.md")
-      document_text = await asyncio.to_thread(doc_path.read_text)
-      input_text = f"<instructions>\n{prompt_text}\n</instructions>\n\n<document>\n{document_text}\n</document>"
     case _, _:
       raise Exception(
         (
           "Unsupported modality/quality combination: "
-          "{experiment['modality']}/{experiment['quality']}"
+          f"{experiment['modality']}/{experiment['quality']}"
         )
       )
 
-  # measure number of characters in input
+  # Build the input text (prompt + document) and load the images if applicable
+  if doc_path:  # If this variable is set, then we're in text mode
+    document_text = await asyncio.to_thread(doc_path.read_text)
+    image_data = []
+    input_text = (
+      f"<instructions>\n{prompt_text}\n</instructions>\n\n"
+      f"<document>\n{document_text}\n</document>"
+    )
+  elif img_paths:  # if this list is not empty, we're in image mode
+    image_data = [await _encode_image(path) for path in img_paths]
+    input_text = (
+      f"<instructions>\n{prompt_text}\n\n"
+      "Extract the data from the document depicted in the attached images.\n"
+      "</instructions>"
+    )
+  else:
+    raise Exception("No image files found!")
+
+  # Measure number of characters in input
   input_length = len(json.dumps(input_text))
   if image_data:
     input_length += sum(len(img) for img in image_data)
