@@ -37,16 +37,31 @@ def _parse_args() -> argparse.Namespace:
     description="Run data extractions for all parameter and input combinations"
   )
   default_input_path = Path(".") / "data" / "1_synthetic_data/"
+  default_resp_path = Path(".") / "data" / "2_llm_runs/"
+  default_score_path = Path(".") / "data" / "3_scores/"
+  default_ollama = "localhost:11437"
   parser.add_argument(
     "--input",
     "-i",
     default=default_input_path,
-    help=f"Path to input directory (default: {default_input_path})",
+    help=f"Input directory (default: {default_input_path}).",
+  )
+  parser.add_argument(
+    "--responses",
+    "-r",
+    default=default_resp_path,
+    help=f"Output directory for LLM responses (default: {default_resp_path}).",
+  )
+  parser.add_argument(
+    "--scores",
+    "-s",
+    default=default_score_path,
+    help=f"Output directory for scores (default: {default_score_path}).",
   )
   parser.add_argument(
     "--ollama-host",
-    default="localhost:11437",
-    help="The address of the Ollama host (including port number).",
+    default=default_ollama,
+    help=f"The host and port for the Ollama server (default: {default_ollama}).",
   )
   return parser.parse_args()
 
@@ -218,7 +233,8 @@ def _create_experimental_plan(reference_data: dict, exp_params: dict) -> pd.Data
 def setup_pipeline(
   experiments: pd.DataFrame,
   input_dir: Path,
-  out_dir: Path,
+  llm_out_dir: Path,
+  scores_out_dir: Path,
   reference_data: dict,
   exp_params: dict,
 ) -> AsyncExecutor:
@@ -255,7 +271,7 @@ def setup_pipeline(
 
   # Layer 3: Perform the experiment (i.e. call the LLM and record metrics)
   async def llm_layer(experiment):
-    out_file = out_dir / f"{experiment['run_id']}_llm_result.json"
+    out_file = llm_out_dir / f"{experiment['run_id']}_llm_result.json"
     if out_file.exists():
       logger.debug(f"Skipping experiment {experiment['run_id']}!")
       experiment["result"] = out_file
@@ -274,7 +290,7 @@ def setup_pipeline(
   # Layer 4: Score the LLM output
   async def scoring_layer(experiment):
     run_id = experiment["run_id"]
-    out_file = out_dir / f"{run_id}_scores.csv"
+    out_file = scores_out_dir / f"{run_id}_scores.csv"
     if out_file.exists():
       logger.debug(f"Skipping existing scores for {run_id}")
       yield
@@ -304,7 +320,9 @@ def setup_pipeline(
   return executor
 
 
-def collect_results(experiments: pd.DataFrame, out_dir: Path) -> pd.DataFrame:
+def collect_results(
+  experiments: pd.DataFrame, llm_out_dir: Path, scores_out_dir: Path
+) -> pd.DataFrame:
   # Collect all the outputs in a final summary table
   out_table = []
   for i, experiment in experiments.iterrows():
@@ -330,7 +348,7 @@ def collect_results(experiments: pd.DataFrame, out_dir: Path) -> pd.DataFrame:
 
     # check if successful output exists:
     run_id = experiment["run_id"]
-    result_path = out_dir / f"{run_id}_llm_result.json"
+    result_path = llm_out_dir / f"{run_id}_llm_result.json"
     if not result_path.exists():
       # add the row to the output table
       out_table.append(out_row)
@@ -351,7 +369,7 @@ def collect_results(experiments: pd.DataFrame, out_dir: Path) -> pd.DataFrame:
     out_row["output_chars"] = result.get("output_chars")
 
     # check if a score file exists
-    score_path = out_dir / f"{run_id}_scores.csv"
+    score_path = scores_out_dir / f"{run_id}_scores.csv"
     if not score_path.exists():
       # add the row to the output table
       out_table.append(out_row)
@@ -378,6 +396,8 @@ def main() -> None:
   # parse command line arguments
   cli_args = _parse_args()
   input_dir = Path(cli_args.input)
+  llm_out_dir = Path(cli_args.responses)
+  scores_out_dir = Path(cli_args.scores)
   os.environ["OLLAMA_HOST"] = cli_args.ollama_host
 
   # read reference data file and experimental parameters
@@ -396,13 +416,15 @@ def main() -> None:
 
   # export experimental plan to CSV
   logger.info("Writing experimental plan")
-  out_dir = input_dir.parent / "2_llm_runs"
-  out_dir.mkdir(exist_ok=True)
-  experiments.to_csv(out_dir / "llm_runs.csv")
+  llm_out_dir.mkdir(exist_ok=True)
+  scores_out_dir.mkdir(exist_ok=True)
+  experiments.to_csv(llm_out_dir / "llm_runs.csv")
 
   # Set up an asynchronous execution pipeline to run all analysis layers in parallel
   logger.info("Starting pipeline")
-  pipeline = setup_pipeline(experiments, input_dir, out_dir, reference_data, exp_params)
+  pipeline = setup_pipeline(
+    experiments, input_dir, llm_out_dir, scores_out_dir, reference_data, exp_params
+  )
   pipeline.execute()
 
   # process any errors that may have occurred
@@ -413,8 +435,8 @@ def main() -> None:
         logger.error(f"{node} had {len(es)} exceptions:\n{'\n'.join(messages)}")
 
   # collect the outputs and write to file
-  out_df = collect_results(experiments, out_dir)
-  out_file = out_dir / "results.csv"
+  out_df = collect_results(experiments, llm_out_dir, scores_out_dir)
+  out_file = scores_out_dir / "results.csv"
   logger.success(f"Writing overall result table to {out_file}")
   out_df.to_csv(out_file)
 
