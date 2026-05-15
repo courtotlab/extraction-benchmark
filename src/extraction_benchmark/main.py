@@ -10,6 +10,7 @@ from uuid import UUID
 import pandas as pd
 import yaml
 from itertools import product
+from datetime import datetime
 
 from extraction_benchmark.extraction import run_experiment
 from extraction_benchmark.ocr import (
@@ -118,6 +119,27 @@ def _parse_yaml(param_path: Path) -> dict:
 
 
 def _parse_template_fields_csv(path: Path, templates: list[str]) -> pd.DataFrame:
+  """
+  Parse the template fields CSV file.
+
+  This file describes which LaTeX templates use which reference data fields.
+  Column names are expected to be template names (corresponding to 'labs' in
+  the experimental parameters file), while row names are expected to correspond
+  to the possible reference json field names (i.e. dict keys). The value in each
+  cell should be "direct" (for directly used); "indirect" (for indirectly used, such
+  that the value is logically inferrable); "unavailable" (not used in this
+  template and thus expected to be empty); or "no_eval" (indicating that the template
+  contains hard-coded content that misrepresents the reference data and should
+  thus be excluded from evaluation)
+
+  Args:
+    path(Path): The path to the csv file
+    templates(list[str]): the list of allowed template names (from the experimental
+      parameters file)
+
+  Returns:
+    df(DataFrame): A data frame of the csv table
+  """
   logger.info(f"Reading {path}")
   try:
     df = pd.read_csv(path)
@@ -139,7 +161,7 @@ def _parse_template_fields_csv(path: Path, templates: list[str]) -> pd.DataFrame
 
 
 def _move_if_needed(src: Path, dest: Path) -> Path:
-  """Move a file to the given destination if it's not there yet
+  """Move a file to the given destination if it's not there yet.
 
   Args:
     src(Path): the original path to the file
@@ -159,6 +181,21 @@ def _move_if_needed(src: Path, dest: Path) -> Path:
 
 
 def cleanup_inputs(reference_data: dict, input_dir: Path) -> None:
+  """
+  Iterate over all reference data and organize the associated input files.
+
+  For each reference document it checks if the associated pdf and md files are
+  already in a dedicated subfolder, if not, it creates the folder and moves
+  the documents into it.
+
+  Propagates any exceptions arising at lower levels (e.g. if files are
+  missing or can't be read)
+
+  Args:
+    reference_data(dict): The reference data set. Keys are expected to
+      be the UUIDs representing a reference document
+    input_dir(Path): The directory where the documents are located
+  """
   document_ids = [UUID(key) for key in reference_data.keys()]
   for doc_id in document_ids:
     # create dedicated sub-folder and move document files to it
@@ -242,6 +279,16 @@ def setup_pipeline(
   Build an asynchronous execution pipeline capable of running all
   stages in parallel
 
+  Args:
+    experiments(DataFrame): The experiments table
+    input_dir(Path): The input directory
+    llm_out_dir(Path): The llm output directory
+    scores_out_dir(Path): The scoring output directory
+    reference_data(dict): The reference data dictionary (from mock_data.json)
+    exp_param(dict): The experimental parameters (from experiment_parameters.yaml)
+
+  Returns:
+    pipeline(AsyncExecutor): The pipeline object
   """
   # Create the execution graph (the pipeline object)
   dag = AsyncGraph()
@@ -323,6 +370,24 @@ def setup_pipeline(
 def collect_results(
   experiments: pd.DataFrame, llm_out_dir: Path, scores_out_dir: Path
 ) -> pd.DataFrame:
+  """
+  Collect all the results and compile them in a table with the following
+  columns: run_id, doc_id, template, quality (original/distressed),
+  modality (text/image), prompt (zero-shot/one-shot), tool (llm model),
+  response (path to llm response), parsing_quality
+  (perfect/markdown/repair_needed/failed),
+  scores (path to score file), processing_time (llm request duration),
+  input_tokens, output_tokens, tp (true positives), fp (false positives),
+  fn (false negatives), sensitivity, precision, f1 (F1-score)
+
+  Args:
+    experiments(DataFrame): The experiments table
+    llm_out_dir(Path): The llm output directory
+    scores_out_dir(Path): The score output directory
+
+  Returns:
+    results(DataFrame): The compiled results
+  """
   # Collect all the outputs in a final summary table
   out_table = []
   for i, experiment in experiments.iterrows():
@@ -332,11 +397,11 @@ def collect_results(
     out_row.update(
       dict(
         response="<failed>",
-        parsing="<failed>",
+        parsing_quality="<failed>",
         scores="<failed>",
         processing_time=None,
-        input_chars=None,
-        output_chars=None,
+        input_tokens=None,
+        output_tokens=None,
         tp=None,
         fp=None,
         fn=None,
@@ -363,10 +428,10 @@ def collect_results(
       # add the row to the output table
       out_table.append(out_row)
       continue
-    out_row["parsing"] = result.get("quality")
+    out_row["parsing_quality"] = result.get("quality")
     out_row["processing_time"] = result.get("processing_time")
-    out_row["input_chars"] = result.get("input_chars")
-    out_row["output_chars"] = result.get("output_chars")
+    out_row["input_tokens"] = result.get("input_tokens")
+    out_row["output_tokens"] = result.get("output_tokens")
 
     # check if a score file exists
     score_path = scores_out_dir / f"{run_id}_scores.csv"
@@ -393,6 +458,11 @@ def collect_results(
 
 
 def main() -> None:
+  # set up log file
+  timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+  log_file = Path(".") / f"benchmark_{timestamp}.log"
+  logger.add(log_file, level="DEBUG")
+
   # parse command line arguments
   cli_args = _parse_args()
   input_dir = Path(cli_args.input)
@@ -407,6 +477,14 @@ def main() -> None:
     input_dir.parent / "template_fields.csv", list(exp_params["labs"].keys())
   )
   exp_params["template_fields"] = template_fields
+
+  # if any experiments require OpenAI, check that the API key is available
+  if any(
+    tool_config["env"] == "openai" for tool_config in exp_params["tools"].values()
+  ):
+    if not os.environ["OPENAI_API_KEY"]:
+      logger.error("OPENAI_API_KEY variable is required, but not defined!")
+      sys.exit(1)
 
   # Cleanup the input data files
   cleanup_inputs(reference_data, input_dir)

@@ -118,7 +118,15 @@ def extract_json_from_response(response: str) -> dict[str, Any]:
 
 
 def _clean_json_string(json_str: str) -> str:
-  """Apply common cleanup operations to fix malformed JSON."""
+  """
+  Apply common cleanup operations to fix malformed JSON.
+
+  Args:
+    json_str(str): input json string
+
+  Return:
+    cleaned(str): the cleaned json string
+  """
   # Remove trailing commas before closing braces/brackets
   cleaned = re.sub(r",(\s*[}\]])", r"\1", json_str)
   # Remove comments (both // and /* */)
@@ -130,16 +138,27 @@ def _clean_json_string(json_str: str) -> str:
 
 
 async def run_ollama(
-  model: str, input_text: str, input_images: list[str] = [], temp: float = 0.0
+  model: str,
+  input_text: str,
+  input_images: list[str] = [],
+  temp: float = 0.0,
+  char_cutoff=5 * 2**10,  # 5KiB
 ) -> str:
   """
-  run the ollama model on the given message context.
+  Run the ollama model on the given message context.
+
+  This will asynchronously stream a response from the selected ollama model.
+  If the response starts to exceed the stated character limit, the connection
+  will be closed.
 
   Args:
-    model(str): the name of the ollama model
-    input_text(str): the message input text
-    input_images(list[str]): list of base64 encoded image strings
-    temp: temperature parameter
+    model(str): the name of the ollama model.
+    input_text(str): the message input text.
+    input_images(list[str]): list of base64 encoded image strings.
+    temp(float): temperature parameter.
+    char_cutoff(int): The maximum number of output characters the
+      model will be allowed to return.
+
   Returns:
     The response from the model
   """
@@ -151,13 +170,22 @@ async def run_ollama(
     message.update({"images": input_images})
 
   host = os.getenv("OLLAMA_HOST")
-  # with AsyncClient(host) as client:
   client = AsyncClient(host)
-  response = await client.chat(
-    model=model, messages=[message], options={"temperature": temp}
-  )
-  await client.close()
-  return response["message"]["content"]
+  content = ""
+  try:
+    stream = await client.chat(
+      model=model, messages=[message], options={"temperature": temp}, stream=True
+    )
+    async for chunk in stream:
+      if chunk.message.content:
+        print(chunk.message.content)
+        content += chunk.message.content
+        if len(content) > char_cutoff:
+          break
+  finally:
+    # await stream.close()
+    await client.close()
+  return content
 
 
 async def run_openai(
@@ -200,7 +228,13 @@ async def run_openai(
 
 async def _encode_image(path: Path) -> str:
   """
-  Encode image at given location as base64 string
+  Encode image at given location as base64 string.
+
+  Args:
+    path(Path): path to image file
+
+  Returns:
+    out(str): The base64 string
   """
   bytes = await asyncio.to_thread(path.read_bytes)
   return base64.b64encode(bytes).decode("utf-8")
@@ -218,11 +252,12 @@ async def run_experiment(experiment: dict, exp_param: dict, input_dir: Path) -> 
       e.g. modality, quality, prompt type
     exp_param(dict): A dictionary with the contents of experimental_parameters.yaml,
       e.g. the location of the prompt text files
+    input_dir(Path): The directory containing the input document files.
 
   Returns:
     result(dict): The result of the experiment: a dictionary with keys
       'response'(dict, the parsed json output), 'quality'(JsonQuality),
-      'processing_time'(float), 'input_chars'(int), 'output_chars.(int)
+      'processing_time'(float), 'input_tokens'(int), 'output_tokens(int)
   """
 
   # Load the prompt text
@@ -279,12 +314,11 @@ async def run_experiment(experiment: dict, exp_param: dict, input_dir: Path) -> 
   else:
     raise Exception("No image files found!")
 
-  # Measure number of characters in input
-  input_length = len(json.dumps(input_text))
-  if image_data:
-    input_length += sum(len(img) for img in image_data)
-  # Note: 32x32px ~= 1 token, so 1700/2200px document page is ~3,652 tokens
-  # Whereas for text, 1 token ~= 4chars
+  # Estimate the number of input tokens
+  # Note: for most vision models, 32x32px ~= 1 token,
+  # so 1700x2200px document page is ~3,652 tokens,
+  # whereas for text, 1 token ~= 3.7chars
+  input_tokens = len(json.dumps(input_text)) / 3.7 + len(image_data) * 3652
 
   # figure out the runtime environment base on the model
   model = experiment["tool"]
@@ -305,11 +339,11 @@ async def run_experiment(experiment: dict, exp_param: dict, input_dir: Path) -> 
   # measure experiment duration
   elapsed = time.time() - start_time
   # measure the number of output characters
-  output_length = len(response)
+  output_tokens = len(response) / 3.7
 
   result = extract_json_from_response(response)
   result["processing_time"] = elapsed
-  result["input_chars"] = input_length
-  result["output_chars"] = output_length
+  result["input_tokens"] = input_tokens
+  result["output_tokens"] = output_tokens
 
   return result
