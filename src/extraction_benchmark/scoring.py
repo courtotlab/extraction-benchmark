@@ -124,6 +124,20 @@ def _align_strings(
 
 
 def normalize_string(value: str) -> str:
+  """
+  Normalize strings for evaluation.
+
+  Apply a set of normaliztion rules:
+  1. All upper case
+  2. Remove transcript versions
+  3. VUS -> Variant of uncertain significance
+  4. Remove HH:MM:SS from dates
+
+  Args:
+    value(str): An input string
+  Return:
+    value(str): The normalized string
+  """
   value = value.strip().upper()
   rules = [
     r"NM_\d+(\.\d+)?",  # remove version numbers from transcripts
@@ -209,6 +223,12 @@ def _remove_group_matches(value: str, rx: str) -> str:
 
 
 def _mask_field_value(value: Any, field_state: str) -> Any:
+  """
+  Apply a masking operation to a field value based on a field state.
+
+  If the state is "unavailable" (not used in the template), set the value to "".
+  If the state is "no_eval" (not to be evaluated), se the value to "<no_eval>"
+  """
   match field_state:
     case "direct" | "indirect":
       return value
