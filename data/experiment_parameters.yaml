@@ -1,13 +1,13 @@
 labs:
-  cheo: Children's Hospital of Eastern Ontario (Ottawa)
-  hamilton: Hamilton Health Sciences (Hamilton)
-  sick_kids: Hospital for Sick Children (Toronto)
-  kingston: Kingston Health Sciences Centre (Kingston)
-  london: London Health Sciences Centre (London)
-  nygh: North York General Hospital (Toronto)
-  mt_sinai: Sinai Health System (Toronto)
-  trillium: Trillium Health Partners (Mississauga)
-  uhn: University Health Network (Toronto)
+  cheo: "Children's Hospital of Eastern Ontario (Ottawa)"
+  hamilton: "Hamilton Health Sciences (Hamilton)"
+  sick_kids: "Hospital for Sick Children (Toronto)"
+  kingston: "Kingston Health Sciences Centre (Kingston)"
+  london: "London Health Sciences Centre (London)"
+  nygh: "North York General Hospital (Toronto)"
+  mt_sinai: "Sinai Health System (Toronto)"
+  trillium: "Trillium Health Partners (Mississauga)"
+  uhn: "University Health Network (Toronto)"
   fakeHospital1: "Ontario Cancer Hospital (Toronto)"
   fakeHospital2: "Toronto Cancer Hospital (Toronto)"
 qualities:
@@ -21,15 +21,21 @@ prompts:
   zero_shot: data/prompts/zero_shot.txt
   one_shot: data/prompts/one_shot.txt
 tools:
-  "mistral-small3.1:latest":
-    env: ollama
+  # "mistral-small3.1:latest":
+  #   env: ollama
+  #   vision: true
+  # "llama3.1:70b": 
+  #   env: ollama
+  #   vision: false
+  # "gemma3:27b": 
+  #   env: ollama
+  #   vision: true
+  # "gpt-4.1-mini":
+  #   env: openai
+  #   vision: true
+  "numind/NuExtract-2.0-2B":
+    env: nuextract
     vision: true
-  "llama3.1:70b": 
-    env: ollama
-    vision: false
-  "gemma3:27b": 
-    env: ollama
-    vision: true
-  "gpt-4.1-mini":
-    env: openai
-    vision: true
+nuextract_prompt_files:
+  nuextract_template: data/prompts/nuextract_template.json
+  nuextract_example: data/prompts/nuextract_example.txt

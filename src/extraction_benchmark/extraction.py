@@ -9,7 +9,9 @@ import json
 import re
 from loguru import logger
 import time
-from typing import Any
+from typing import Any, Optional, Union
+from extraction_benchmark.nuextract import NuExtract, concatenate_images_vertical
+from PIL import Image
 
 
 class JsonQuality(str, Enum):
@@ -178,7 +180,7 @@ async def run_ollama(
     )
     async for chunk in stream:
       if chunk.message.content:
-        print(chunk.message.content)
+        # print(chunk.message.content)
         content += chunk.message.content
         if len(content) > char_cutoff:
           break
@@ -186,6 +188,30 @@ async def run_ollama(
     # await stream.close()
     await client.close()
   return content
+
+
+async def run_nuextract(
+  input_text: str,
+  template: str,
+  input_images: list[Image.Image] = [],
+  examples: Optional[list[dict[str, str]]] = None,
+  char_cutoff=5 * 2**10,  # 5KiB
+  # temp: float = 0.0  # NuExtract doesn't have a temperature parameter
+) -> str:
+  document: Union[str, list[dict[str, str | Image.Image]]]
+  if input_images:
+    document = []
+    for image in input_images:
+      document.append({"type": "image", "image": image})
+      # document.append({"type": "image", "image": f"data:image/png;base64,{image}"})
+  else:
+    document = input_text
+  response = NuExtract.get_instance().run(
+    template, document, examples, output_cutoff=char_cutoff
+  )
+  if len(response) > 1:
+    logger.warning("NuExtract produced more than one output!")
+  return response[0]
 
 
 async def run_openai(
@@ -226,7 +252,7 @@ async def run_openai(
   return response.output_text
 
 
-async def _encode_image(path: Path) -> str:
+async def _b64_encode_image(path: Path) -> str:
   """
   Encode image at given location as base64 string.
 
@@ -238,6 +264,16 @@ async def _encode_image(path: Path) -> str:
   """
   bytes = await asyncio.to_thread(path.read_bytes)
   return base64.b64encode(bytes).decode("utf-8")
+
+
+async def _concat_images(paths: list[Path]) -> Image.Image:
+  def open_and_load(path: Path) -> Image.Image:
+    with Image.open(path) as img:
+      return img.copy()  # Forces the file to be read and decoded
+
+  images = [await asyncio.to_thread(open_and_load, path) for path in paths]
+  cat_img = concatenate_images_vertical(images)
+  return cat_img
 
 
 async def run_experiment(experiment: dict, exp_param: dict, input_dir: Path) -> dict:
@@ -260,9 +296,24 @@ async def run_experiment(experiment: dict, exp_param: dict, input_dir: Path) -> 
       'processing_time'(float), 'input_tokens'(int), 'output_tokens(int)
   """
 
-  # Load the prompt text
+  # figure out the model and its runtime environment
+  model = experiment["tool"]
+  run_env = exp_param["tools"][model]["env"]
+
+  # Get the prompt type
   prompt_type = experiment["prompt"]
-  prompt_file = Path(exp_param["prompts"][prompt_type])
+
+  # Load the prompt text
+  examples: list[dict[str, str]] | None = None
+  if run_env == "nuextract":
+    # NuExtract doesn't use "prompts" but structured templates and examples
+    prompt_file = Path(exp_param["nuextract_prompt_files"]["nuextract_template"])
+    if prompt_type == "one_shot":
+      example_file = Path(exp_param["nuextract_prompt_files"]["nuextract_example"])
+      examples = await NuExtract.load_examples(example_file)
+  else:
+    prompt_file = Path(exp_param["prompts"][prompt_type])
+  # prompt_text holds either the prompt,or the nuextract template
   prompt_text = await asyncio.to_thread(prompt_file.read_text)
 
   doc_id = str(experiment["doc_id"])
@@ -299,13 +350,19 @@ async def run_experiment(experiment: dict, exp_param: dict, input_dir: Path) -> 
   # Build the input text (prompt + document) and load the images if applicable
   if doc_path:  # If this variable is set, then we're in text mode
     document_text = await asyncio.to_thread(doc_path.read_text)
-    image_data = []
+    image_data: list[str | Image.Image] = []
     input_text = (
       f"<instructions>\n{prompt_text}\n</instructions>\n\n"
       f"<document>\n{document_text}\n</document>"
     )
   elif img_paths:  # if this list is not empty, we're in image mode
-    image_data = [await _encode_image(path) for path in img_paths]
+    document_text = ""
+    if run_env == "nuextract":
+      # vertically merge all images into single PIL Image object
+      image_data = [await _concat_images(img_paths)]
+    else:
+      # base-64 encodings of images (strings)
+      image_data = [await _b64_encode_image(path) for path in img_paths]
     input_text = (
       f"<instructions>\n{prompt_text}\n\n"
       "Extract the data from the document depicted in the attached images.\n"
@@ -320,19 +377,32 @@ async def run_experiment(experiment: dict, exp_param: dict, input_dir: Path) -> 
   # whereas for text, 1 token ~= 3.7chars
   input_tokens = len(json.dumps(input_text)) / 3.7 + len(image_data) * 3652
 
-  # figure out the runtime environment base on the model
-  model = experiment["tool"]
-  run_env = exp_param["tools"][model]["env"]
-
   # record the experiment start time
   start_time = time.time()
 
   # start the experiment
   match run_env:
     case "ollama":
-      response = await run_ollama(model, input_text, image_data)
+      response = await run_ollama(
+        model,
+        input_text,
+        [img for img in image_data if isinstance(img, str)],  # Chill MyPy
+      )
     case "openai":
-      response = await run_openai(model, input_text, image_data)
+      response = await run_openai(
+        model,
+        input_text,
+        [img for img in image_data if isinstance(img, str)],  # Chill MyPy
+      )
+    case "nuextract":
+      response = await run_nuextract(
+        document_text,
+        template=prompt_text,
+        examples=examples,
+        input_images=[
+          img for img in image_data if isinstance(img, Image.Image)
+        ],  # Chill MyPy
+      )
     case _:
       raise Exception(f"Unsupported llm environment: {run_env}")
 

@@ -1,0 +1,116 @@
+{
+  "date_collected": "date-time",
+  "date_received": "date-time",
+  "date_verified": "date-time",
+  "report_type": [
+    "Pathology",
+    "Molecular Genetics"
+  ],
+  "testing_context": [
+    "Clinical",
+    "Research"
+  ],
+  "ordering_clinic": [
+    "Children's Hospital of Eastern Ontario (Ottawa)",
+    "Grand River Hospital (Kitchener)",
+    "Hamilton Health Sciences (Hamilton)",
+    "Health Sciences North (Sudbury)",
+    "Hospital for Sick Children (Toronto)",
+    "Kingston Health Sciences Centre (Kingston)",
+    "Lakeridge Health (Oshawa)",
+    "London Health Sciences Centre (London)",
+    "Mackenzie Health (Richmond Hill)",
+    "North York General Hospital (Toronto)",
+    "Orillia Soldiers Memorial Hospital (Orillia, Simcoe/Muskoka)",
+    "Peterborough Regional Health Centre (Peterborough)",
+    "Princess Margaret Hospital (Toronto)",
+    "Sinai Health System (Toronto)",
+    "Sunnybrook Health Sciences (Toronto)",
+    "Thunder Bay Regional Health Sciences Centre (Thunder Bay)",
+    "Trillium Health Partners (Mississauga)",
+    "Windsor Regional Hospital (Windsor)",
+    "Women's College Hospital (Toronto)"
+  ],
+  "testing_laboratory": [
+    "Children's Hospital of Eastern Ontario (Ottawa)",
+    "Hamilton Health Sciences (Hamilton)",
+    "Hospital for Sick Children (Toronto)",
+    "Kingston Health Sciences Centre (Kingston)",
+    "London Health Sciences Centre (London)",
+    "North York General Hospital (Toronto)",
+    "Sinai Health System (Toronto)",
+    "Trillium Health Partners (Mississauga)",
+    "University Health Network (Toronto)",
+    "Ontario Cancer Hospital (Toronto)",
+    "Toronto Cancer Hospital (Toronto)"
+  ],
+  "sequencing_scope": [
+    "Gene panel",
+    "Targeted variant testing",
+    "Whole exome sequencing (WES)",
+    "Whole genome sequencing (WGS)",
+    "Whole transcriptome sequencing (WTS)"
+  ],
+  "tested_genes": {
+    "gene_symbol": {
+      "gene_symbol": "string",
+      "refseq_mrna": "string"
+    }
+  },
+  "num_tested_genes": "integer",
+  "sample_type": [
+    "Amplified DNA",
+    "ctDNA",
+    "Other DNA enrichments",
+    "Other RNA fractions",
+    "polyA+ RNA",
+    "Ribo-Zero RNA",
+    "Total DNA",
+    "Total RNA"
+  ],
+  "analysis_type": [
+    "Variant analysis",
+    "Microarray",
+    "Repeat expansion analysis",
+    "Karyotyping",
+    "Fusion analysis",
+    "Methylation analysis"
+  ],
+  "variants": [
+    {
+      "gene_symbol": "string",
+      "variant_id": "string",
+      "chromosome": "string",
+      "hgvsg": "string",
+      "hgvsc": "string",
+      "hgvsp": "string",
+      "transcript_id": "string",
+      "exon": "string",
+      "zygosity": [
+        "Homozygous",
+        "Heterozygous",
+        "Hemizygous",
+        "Compound heterozygous"
+      ],
+      "interpretation": [
+        "Variant of clinical significance",
+        "Variant of uncertain clinical significance",
+        "Variant of no clinical significance"
+      ],
+      "maf": "number",
+      "type": [
+        "frameshift",
+        "nonsense",
+        "synonymous",
+        "missense"
+      ]
+    }
+  ],
+  "reference_genome": [
+    "GRCh37",
+    "GRCh38",
+    "NCBI build 34",
+    "hg19",
+    "hg38"
+  ]
+}
