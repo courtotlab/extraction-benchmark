@@ -567,18 +567,35 @@ def score_genes_dict(found: dict, expected: dict) -> list[dict]:
     for key in exp_gene.keys():
       if key not in exp_gene:
         score_entries.append(
-          dict(ref=f"variants.{ek}.{key}", expected=key, found=None, tp=0, fp=0, fn=1)
+          dict(
+            ref=f"tested_genes.{ek}.{key}", expected=key, found=None, tp=0, fp=0, fn=1
+          )
         )
     # process remaining keys (matching or surplus)
-    for key in found_gene.keys():
-      if key not in exp_keys:
-        score_entries.append(
-          dict(ref=f"variants.{ek}.{key}", expected=None, found=key, tp=0, fp=1, fn=0)
+    # FIXME: found_gene 'int' object has no attribute 'keys'
+    if isinstance(found_gene, dict):
+      for key in found_gene.keys():
+        if key not in exp_keys:
+          score_entries.append(
+            dict(
+              ref=f"tested_genes.{ek}.{key}", expected=None, found=key, tp=0, fp=1, fn=0
+            )
+          )
+        elif exp_gene[key] != "<no_eval>":
+          score_entries.append(
+            score_strings(key, str(found_gene[key]), str(exp_gene[key]))
+          )
+    else:
+      score_entries.append(
+        dict(
+          ref=f"tested_genes.{ek}",
+          expected="<dict>",
+          found=found_gene,
+          tp=0,
+          fp=1,
+          fn=1,
         )
-      elif exp_gene[key] != "<no_eval>":
-        score_entries.append(
-          score_strings(key, str(found_gene[key]), str(exp_gene[key]))
-        )
+      )
 
   return score_entries
 

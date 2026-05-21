@@ -378,7 +378,7 @@ def collect_results(
   (perfect/markdown/repair_needed/failed),
   scores (path to score file), processing_time (llm request duration),
   input_tokens, output_tokens, tp (true positives), fp (false positives),
-  fn (false negatives), sensitivity, precision, f1 (F1-score)
+  fn (false negatives), recall, precision, f1 (F1-score)
 
   Args:
     experiments(DataFrame): The experiments table
@@ -405,7 +405,7 @@ def collect_results(
         tp=None,
         fp=None,
         fn=None,
-        sensitivity=None,
+        recall=None,
         precision=None,
         f1=None,
       )
