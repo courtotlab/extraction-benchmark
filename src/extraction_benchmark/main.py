@@ -489,14 +489,20 @@ def main() -> None:
   # Cleanup the input data files
   cleanup_inputs(reference_data, input_dir)
 
-  # create experimental plan table
-  experiments = _create_experimental_plan(reference_data, exp_params)
-
-  # export experimental plan to CSV
-  logger.info("Writing experimental plan")
+  # load or create experimental plan table
   llm_out_dir.mkdir(exist_ok=True)
+  experiments_file = llm_out_dir / "llm_runs.csv"
+  if experiments_file.exists():
+    logger.info(f"Loading experiment plan from existing file: {experiments_file}")
+    experiments = pd.read_csv(experiments_file)
+  else:
+    # create a new plan plan
+    experiments = _create_experimental_plan(reference_data, exp_params)
+    # export experimental plan to CSV
+    logger.info("Writing experimental plan")
+    experiments.to_csv(experiments_file)
+
   scores_out_dir.mkdir(exist_ok=True)
-  experiments.to_csv(llm_out_dir / "llm_runs.csv")
 
   # Set up an asynchronous execution pipeline to run all analysis layers in parallel
   logger.info("Starting pipeline")
