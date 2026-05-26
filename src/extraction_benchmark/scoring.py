@@ -264,22 +264,25 @@ def mask_reference_data(reference_data: dict, field_states: dict[str, str]) -> d
   # out["date_verified"] = out["date_verified"].split(" ")[0]
 
   for field_name, value in out.items():
-    match field_name, value:
-      case "variants", list():
+    match field_name, value, field_states[field_name]:
+      case "variants", list(), _:
         for sub_dict in value:
           if isinstance(sub_dict, dict):
             for sub_field_name in sub_dict.keys():
               sub_dict[sub_field_name] = _mask_field_value(
                 sub_dict[sub_field_name], field_states[sub_field_name]
               )
-      case "tested_genes", dict():
+      # if tested_genes is no_eval, that means tested_genes as a whole should be excluded
+      case "tested_genes", dict(), "no_eval":
+        out[field_name] = _mask_field_value(out[field_name], field_states[field_name])
+      case "tested_genes", dict(), _:
         for sub_dict in value.values():
           if isinstance(sub_dict, dict):
             for sub_field_name in sub_dict.keys():
               sub_dict[sub_field_name] = _mask_field_value(
                 sub_dict[sub_field_name], field_states[sub_field_name]
               )
-      case _, _:
+      case _, _, _:
         out[field_name] = _mask_field_value(out[field_name], field_states[field_name])
   return out
 
