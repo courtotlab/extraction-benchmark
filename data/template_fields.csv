@@ -7,12 +7,14 @@ testing_context,no_eval,no_eval,no_eval,no_eval,no_eval,no_eval,no_eval,no_eval,
 ordering_clinic,direct,unavailable,direct,unavailable,unavailable,direct,direct,direct,unavailable,unavailable,unavailable
 testing_laboratory,indirect,indirect,indirect,indirect,indirect,indirect,indirect,indirect,indirect,indirect,indirect
 sequencing_scope,no_eval,no_eval,direct,no_eval,no_eval,no_eval,no_eval,no_eval,no_eval,no_eval,no_eval
-gene_symbol,direct,direct,direct,direct,direct,direct,no_eval,direct,direct,direct,direct
+tested_genes,direct,direct,direct,direct,direct,direct,no_eval,direct,direct,direct,direct
+gene_symbol,direct,direct,direct,direct,direct,direct,direct,direct,direct,direct,direct
 refseq_mrna,direct,unavailable,unavailable,direct,unavailable,unavailable,no_eval,direct,unavailable,unavailable,direct
 num_tested_genes,direct,direct,direct,direct,direct,indirect,no_eval,direct,direct,indirect,indirect
 sample_type,no_eval,direct,no_eval,no_eval,no_eval,direct,no_eval,no_eval,no_eval,no_eval,no_eval
 analysis_type,no_eval,no_eval,direct,no_eval,no_eval,no_eval,no_eval,no_eval,no_eval,no_eval,no_eval
 reference_genome,unavailable,unavailable,direct,unavailable,unavailable,unavailable,unavailable,unavailable,direct,unavailable,direct
+variants,direct,direct,direct,direct,direct,direct,direct,direct,direct,direct,direct
 variant_id,direct,direct,direct,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable
 chromosome,unavailable,direct,direct,unavailable,unavailable,unavailable,unavailable,unavailable,direct,unavailable,unavailable
 hgvsg,unavailable,unavailable,direct,unavailable,unavailable,unavailable,unavailable,unavailable,direct,unavailable,unavailable
