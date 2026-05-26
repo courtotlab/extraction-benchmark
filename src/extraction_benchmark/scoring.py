@@ -607,8 +607,8 @@ def summarize_score(score_table: pd.DataFrame) -> dict:
   tpsum = score_table["tp"].sum()
   fpsum = score_table["fp"].sum()
   fnsum = score_table["fn"].sum()
-  recall = tpsum / (tpsum + fnsum)
-  precision = tpsum / (tpsum + fpsum)
+  recall = tpsum / (tpsum + fnsum) if tpsum > 0 else 0
+  precision = tpsum / (tpsum + fpsum) if tpsum > 0 else 0
   pc = 1e-9  # pseudocount to avoid division by zero errors
   summary = dict(
     tp=tpsum,
