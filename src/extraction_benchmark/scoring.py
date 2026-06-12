@@ -5,6 +5,8 @@ import pandas as pd
 from typing import Any
 import re
 
+from loguru import logger
+
 
 # def filter_reference_data(reference_data: dict, allowed_fields: list[str]) -> dict:
 #   out: dict[str, Any] = {}
@@ -143,6 +145,7 @@ def normalize_string(value: str) -> str:
     r"NM_\d+(\.\d+)?",  # remove version numbers from transcripts
     r"UNCERTAIN (CLINICAL )?SIGNIFICANCE (\(VUS\))?",  # normalize VUS label
     r"^\d{4}-\d{2}-\d{2}(.*)?",  # remove hours, minutes, seconds from dates
+    r"^\d+(\.0+)",  # remove zero decimals
   ]
   for rule in rules:
     value = _remove_group_matches(value, rule)
@@ -249,14 +252,17 @@ def mask_reference_data(reference_data: dict, field_states: dict[str, str]) -> d
 
   # start by removing fields that are not requested in the extraction prompt
   # namely, num_variants, mega_hgvs, mafan and mafac
-  del out["num_variants"]
-  if isinstance(out["variants"], list):
-    for var_dict in out["variants"]:
-      del var_dict["mega_hgvs"]
-      del var_dict["mafan"]
-      del var_dict["mafac"]
-      var_dict["maf"] = var_dict["mafaf"]
-      del var_dict["mafaf"]
+  # TODO: This should be handled externally, not hardcoded here
+  if "num_variants" in out:
+    del out["num_variants"]
+  if "variants" in out:
+    if isinstance(out["variants"], list):
+      for var_dict in out["variants"]:
+        del var_dict["mega_hgvs"]
+        del var_dict["mafan"]
+        del var_dict["mafac"]
+        var_dict["maf"] = var_dict["mafaf"]
+        del var_dict["mafaf"]
 
   # correct the value of dates to their actual document interpolations
   # out["date_collected"] = out["date_collected"].split(" ")[0]
@@ -264,27 +270,39 @@ def mask_reference_data(reference_data: dict, field_states: dict[str, str]) -> d
   # out["date_verified"] = out["date_verified"].split(" ")[0]
 
   for field_name, value in out.items():
-    match field_name, value, field_states[field_name]:
-      case "variants", list(), _:
+    match value, field_states[field_name]:
+      case list(), _:
         for sub_dict in value:
-          if isinstance(sub_dict, dict):
+          if isinstance(sub_dict, dict):  # list contains dicts
             for sub_field_name in sub_dict.keys():
               sub_dict[sub_field_name] = _mask_field_value(
                 sub_dict[sub_field_name], field_states[sub_field_name]
               )
+          else:  # list contains simple values
+            sub_dict = _mask_field_value(sub_dict, field_states[field_name])
       # if tested_genes is no_eval, that means tested_genes as a whole should be excluded
-      case "tested_genes", dict(), "no_eval":
+      case dict(), "no_eval":
         out[field_name] = _mask_field_value(out[field_name], field_states[field_name])
-      case "tested_genes", dict(), _:
+      case dict(), _:
         for sub_dict in value.values():
           if isinstance(sub_dict, dict):
             for sub_field_name in sub_dict.keys():
               sub_dict[sub_field_name] = _mask_field_value(
                 sub_dict[sub_field_name], field_states[sub_field_name]
               )
-      case _, _, _:
+          else:  # dict values are simple values
+            sub_dict = _mask_field_value(sub_dict, field_states[field_name])
+      case _, _:
         out[field_name] = _mask_field_value(out[field_name], field_states[field_name])
   return out
+
+
+def _is_list_of_dicts(x: list) -> bool:
+  return len(x) > 0 and all(isinstance(i, dict) for i in x)
+
+
+def _is_dict_of_dicts(x: dict) -> bool:
+  return len(x) > 0 and all(isinstance(v, dict) for v in x.values())
 
 
 def score_response(response: dict, reference: dict) -> pd.DataFrame:
@@ -321,25 +339,30 @@ def score_response(response: dict, reference: dict) -> pd.DataFrame:
   for key, val in response.items():
     if key in reference and reference[key] != "<no_eval>":
       match key, val:
-        case "variants", list():
+        case _, list() if _is_list_of_dicts(val):
           # check if the entire list should be omitted from evaluation
           skip_all = all(v == "<no_eval>" for d in reference[key] for v in d.values())
           if not skip_all:
-            scores.extend(score_variant_list(val, reference[key]))
-        case "tested_genes", dict():
-          # check if the entire list should be omitted from evaluation
+            scores.extend(score_list_of_dicts(val, reference[key], key))
+        case _, list():  # it's just a simple list
+          scores.extend(score_simple_list(val, reference[key], key))
+        case _, dict() if _is_dict_of_dicts(val):
+          # check if the entire dict should be omitted from evaluation
           skip_all = all(
             v == "<no_eval>" for d in reference[key].values() for v in d.values()
           )
           if not skip_all:
-            scores.extend(score_genes_dict(val, reference[key]))
-        case (_, list()) | (_, dict()):
-          # a list or dict with a different name, not allowed!
-          scores.append(
-            dict(
-              ref=key, expected=reference[key], found=json.dumps(val), tp=0, fp=1, fn=0
-            )
-          )
+            scores.extend(score_dict_of_dicts(val, reference[key], key))
+        case _, dict():
+          logger.warning("Subdicts are not supported yet!")
+        # case (_, list()) | (_, dict()):
+        #   # a list or dict with a different name, not allowed!
+        #   scores.append(
+        #     dict(
+        #       ref=key, expected=reference[key], found=json.dumps(val), tp=0, fp=1, fn=0
+        #     )
+        #   )
+        # TODO: this should be encoded in the template_fields csv instead!
         case (
           ("report_type", _)
           | ("testing_context", _)
@@ -383,7 +406,11 @@ def _var_label(variant: dict) -> str:
   Create an identifying label for a variant dict, e.g. BRCA1:c.123A>C.
   if gene_symbol or hgvsc are not defined, label segment will be "None"
   """
-  return f"{variant.get('gene_symbol')}:{variant.get('hgvsc')}"
+  if "gene_symbol" in variant and "hgvsc" in variant:
+    return f"{variant.get('gene_symbol')}:{variant.get('hgvsc')}"
+  else:
+    first_key = list(variant.keys())[0]
+    return variant[first_key]
 
 
 def _greedy_pairings(
@@ -440,13 +467,73 @@ def _greedy_pairings(
   return row2col, col2row
 
 
-def score_variant_list(found: list[dict], expected: list[dict]) -> list[dict]:
+def score_simple_list(found: list[Any], expected: list[Any], name: str) -> list[dict]:
   score_entries: list[dict] = []
 
-  # if there reference omits the list entirely, score it as a FP
+  # if the reference omits the list entirely, score it as a FP
   if not isinstance(expected, list):
     score_entries.append(
-      dict(ref="variants", expected=None, found="<list>", tp=0, fp=1, fn=0)
+      dict(ref=name, expected=None, found="<list>", tp=0, fp=1, fn=0)
+    )
+    return score_entries
+
+  found2exp, exp2found = _greedy_pairings(
+    [str(f) for f in found], [str(e) for e in expected]
+  )
+
+  # if there are any missing entries, report them as FN
+  missing = [i for i in range(len(expected)) if exp2found[i] == -1]
+  for i in missing:
+    score_entries.append(
+      dict(
+        ref=f"{name}[{i}]",
+        expected=expected[i],
+        found=None,
+        tp=0,
+        fp=0,
+        fn=1,
+      )
+    )
+
+  # if there are surplus entries found, report them as FP
+  surplus = [i for i in range(len(found)) if found2exp[i] == -1]
+  for i in surplus:
+    score_entries.append(
+      dict(
+        ref=f"{name}[{i}]",
+        expected=None,
+        found=found[i],
+        tp=0,
+        fp=1,
+        fn=0,
+      )
+    )
+
+  # finally, we compare the matched variants in detail:
+  for i in range(len(expected)):
+    # get the mapping and and skip if there's none
+    j = exp2found[i]
+    if j < 0:
+      continue
+
+    # resolve the mapping to the actual variant dicts
+    exp_item = expected[i]
+    found_item = found[j]
+
+    score_entries.append(score_strings(f"{name}[{i}]", str(found_item), str(exp_item)))
+
+  return score_entries
+
+
+def score_list_of_dicts(
+  found: list[dict], expected: list[dict], name: str
+) -> list[dict]:
+  score_entries: list[dict] = []
+
+  # if the reference omits the list entirely, score it as a FP
+  if not isinstance(expected, list):
+    score_entries.append(
+      dict(ref=name, expected=None, found="<list>", tp=0, fp=1, fn=0)
     )
     return score_entries
 
@@ -460,7 +547,7 @@ def score_variant_list(found: list[dict], expected: list[dict]) -> list[dict]:
   for i in missing:
     score_entries.append(
       dict(
-        ref=f"variants[{i}]",
+        ref=f"{name}[{i}]",
         expected=_var_label(expected[i]),
         found=None,
         tp=0,
@@ -474,7 +561,7 @@ def score_variant_list(found: list[dict], expected: list[dict]) -> list[dict]:
   for i in surplus:
     score_entries.append(
       dict(
-        ref=f"variants[{i}]",
+        ref=f"{name}[{i}]",
         expected=None,
         found=_var_label(found[i]),
         tp=0,
@@ -498,13 +585,13 @@ def score_variant_list(found: list[dict], expected: list[dict]) -> list[dict]:
     for key in exp_var.keys():
       if key not in found_var:
         score_entries.append(
-          dict(ref=f"variants[{i}].{key}", expected=key, found=None, tp=0, fp=0, fn=1)
+          dict(ref=f"{name}[{i}].{key}", expected=key, found=None, tp=0, fp=0, fn=1)
         )
     # process remaining keys (matching or surplus)
     for key in found_var.keys():
       if key not in exp_var:
         score_entries.append(
-          dict(ref=f"variants[{i}].{key}", expected=None, found=key, tp=0, fp=1, fn=0)
+          dict(ref=f"{name}[{i}].{key}", expected=None, found=key, tp=0, fp=1, fn=0)
         )
       elif exp_var[key] != "<no_eval>":
         score_entries.append(score_strings(key, str(found_var[key]), str(exp_var[key])))
@@ -512,13 +599,13 @@ def score_variant_list(found: list[dict], expected: list[dict]) -> list[dict]:
   return score_entries
 
 
-def score_genes_dict(found: dict, expected: dict) -> list[dict]:
+def score_dict_of_dicts(found: dict, expected: dict, name: str) -> list[dict]:
   score_entries: list[dict] = []
 
   # if the reference doesn't have any, then score FP
   if not isinstance(expected, dict):
     score_entries.append(
-      dict(ref="tested_genes", expected=None, found="<dict>", tp=0, fp=1, fn=0)
+      dict(ref=name, expected=None, found="<dict>", tp=0, fp=1, fn=0)
     )
     return score_entries
 
@@ -537,7 +624,7 @@ def score_genes_dict(found: dict, expected: dict) -> list[dict]:
     if exp2found[ek] is None:
       score_entries.append(
         dict(
-          ref=f"tested_genes.{ek}",
+          ref=f"{name}.{ek}",
           expected=ek,
           found=None,
           tp=0,
@@ -552,7 +639,7 @@ def score_genes_dict(found: dict, expected: dict) -> list[dict]:
     if ek is None:
       score_entries.append(
         dict(
-          ref=f"tested_genes.{fk}",
+          ref=f"{name}.{fk}",
           expected=None,
           found=fk,
           tp=0,
@@ -570,9 +657,7 @@ def score_genes_dict(found: dict, expected: dict) -> list[dict]:
     for key in exp_gene.keys():
       if key not in exp_gene:
         score_entries.append(
-          dict(
-            ref=f"tested_genes.{ek}.{key}", expected=key, found=None, tp=0, fp=0, fn=1
-          )
+          dict(ref=f"{name}.{ek}.{key}", expected=key, found=None, tp=0, fp=0, fn=1)
         )
     # process remaining keys (matching or surplus)
     # FIXME: found_gene 'int' object has no attribute 'keys'
@@ -580,9 +665,7 @@ def score_genes_dict(found: dict, expected: dict) -> list[dict]:
       for key in found_gene.keys():
         if key not in exp_keys:
           score_entries.append(
-            dict(
-              ref=f"tested_genes.{ek}.{key}", expected=None, found=key, tp=0, fp=1, fn=0
-            )
+            dict(ref=f"{name}.{ek}.{key}", expected=None, found=key, tp=0, fp=1, fn=0)
           )
         elif exp_gene[key] != "<no_eval>":
           score_entries.append(
