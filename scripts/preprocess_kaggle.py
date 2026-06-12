@@ -12,13 +12,13 @@ ocr = lazy_load_ocr_callable()
 
 indir = Path("data") / "kaggle"
 
-# in_subdir = indir / "discharge_summaries"
-in_subdir = indir / "bills"
-# outdir = Path("data") / "discharge"
-outdir = Path("data") / "bills"
+in_subdir = indir / "discharge_summaries"
+# in_subdir = indir / "bills"
+outdir = Path("data") / "discharge"
+# outdir = Path("data") / "bills"
 
-# csv_path = indir / "discharge_summaries_ground_truth.csv"
-csv_path = indir / "medical_bills_ground_truth.csv"
+csv_path = indir / "discharge_summaries_ground_truth.csv"
+# csv_path = indir / "medical_bills_ground_truth.csv"
 data = pd.read_csv(csv_path)
 
 uuids = [str(uuid.uuid4()) for _ in range(len(data))]
@@ -29,7 +29,7 @@ json_data = dict(zip(uuids, parsed))
 outdir.mkdir(exist_ok=True)
 json_path = outdir / "mock_data.json"
 with open(json_path, "w") as f:
-  json.dump(json_data, f)
+  json.dump(json_data, f, indent=2)
 
 
 def convert_image(infile, doc_id, target_dir):
