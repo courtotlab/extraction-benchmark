@@ -40,6 +40,8 @@ def _parse_args() -> argparse.Namespace:
   default_input_path = Path(".") / "data" / "1_synthetic_data/"
   default_resp_path = Path(".") / "data" / "2_llm_runs/"
   default_score_path = Path(".") / "data" / "3_scores/"
+  default_param_file_path = Path(".") / "data" / "experiment_parameters.yaml"
+  default_fields_file_path = Path(".") / "data" / "template_fields.csv"
   default_ollama = "localhost:11437"
   parser.add_argument(
     "--input",
@@ -60,9 +62,29 @@ def _parse_args() -> argparse.Namespace:
     help=f"Output directory for scores (default: {default_score_path}).",
   )
   parser.add_argument(
+    "--parameters-file",
+    "-p",
+    default=default_param_file_path,
+    help=(
+      f"Path to experimental parameters JSON file (default: {default_param_file_path})"
+    ),
+  )
+  parser.add_argument(
+    "--templates-file",
+    "-t",
+    default=default_fields_file_path,
+    help=(
+      "Path to the CSV file holding template field classifications "
+      f"(default: {default_fields_file_path})"
+    ),
+  )
+  parser.add_argument(
     "--ollama-host",
     default=default_ollama,
     help=f"The host and port for the Ollama server (default: {default_ollama}).",
+  )
+  parser.add_argument(
+    "--skip-cleanup", help="Skip the input file cleaning process", action="store_true"
   )
   return parser.parse_args()
 
@@ -118,7 +140,7 @@ def _parse_yaml(param_path: Path) -> dict:
   return exp_params
 
 
-def _parse_template_fields_csv(path: Path, templates: list[str]) -> pd.DataFrame:
+def _parse_template_fields_csv(path: Path, templates: list[str] | None) -> pd.DataFrame:
   """
   Parse the template fields CSV file.
 
@@ -152,10 +174,11 @@ def _parse_template_fields_csv(path: Path, templates: list[str]) -> pd.DataFrame
     sys.exit(1)
   df.set_index("labels", inplace=True)
 
-  missing = [name for name in templates if name not in df.columns]
-  if missing:
-    logger.error(f"Missing templates from template_fields file: {', '.join(missing)}")
-    sys.exit(1)
+  if templates:
+    missing = [name for name in templates if name not in df.columns]
+    if missing:
+      logger.error(f"Missing templates from template_fields file: {', '.join(missing)}")
+      sys.exit(1)
 
   return df
 
@@ -247,14 +270,19 @@ def _create_experimental_plan(reference_data: dict, exp_params: dict) -> pd.Data
   )
 
   # add lab-template information based on document id
-  lab_lookup = {val: key for key, val in exp_params["labs"].items()}
-  doc2lab = {
-    key: lab_lookup[reference_data[str(key)]["testing_laboratory"]]
-    for key in document_ids
-  }
-  experiments.insert(
-    1, "template", [doc2lab[doc_id] for doc_id in experiments["doc_id"]]
-  )
+  if "labs" in exp_params:
+    lab_lookup = {val: key for key, val in exp_params["labs"].items()}
+    doc2lab = {
+      key: lab_lookup[reference_data[str(key)]["testing_laboratory"]]
+      for key in document_ids
+    }
+    experiments.insert(
+      1, "template", [doc2lab[doc_id] for doc_id in experiments["doc_id"]]
+    )
+  else:
+    # This might be the case if we're using other external datasets with no templates
+    logger.warning("No labs listed. Inserting default template!")
+    experiments.insert(1, "template", "default")
 
   # sort by model to reduce ollama model load-time overhead
   experiments.sort_values(by=["tool", "modality", "quality", "prompt"], inplace=True)
@@ -285,7 +313,7 @@ def setup_pipeline(
     llm_out_dir(Path): The llm output directory
     scores_out_dir(Path): The scoring output directory
     reference_data(dict): The reference data dictionary (from mock_data.json)
-    exp_param(dict): The experimental parameters (from experiment_parameters.yaml)
+    exp_params(dict): The experimental parameters (from experiment_parameters.yaml)
 
   Returns:
     pipeline(AsyncExecutor): The pipeline object
@@ -308,10 +336,12 @@ def setup_pipeline(
 
   async def ocr_layer(experiment):
     doc_id = experiment["doc_id"]
-    pdf_original = input_dir / str(doc_id) / f"{doc_id}_original.pdf"
-    pdf_distressed = input_dir / str(doc_id) / f"{doc_id}_distressed.pdf"
-    await extract_image_and_ocr(pdf_original, ocr)
-    await extract_image_and_ocr(pdf_distressed, ocr)
+    if "original" in exp_params["qualities"]:
+      pdf_original = input_dir / str(doc_id) / f"{doc_id}_original.pdf"
+      await extract_image_and_ocr(pdf_original, ocr)
+    if "distressed" in exp_params["qualities"]:
+      pdf_distressed = input_dir / str(doc_id) / f"{doc_id}_distressed.pdf"
+      await extract_image_and_ocr(pdf_distressed, ocr)
     yield experiment
 
   dag.add_node(ocr_layer)
@@ -468,14 +498,15 @@ def main() -> None:
   input_dir = Path(cli_args.input)
   llm_out_dir = Path(cli_args.responses)
   scores_out_dir = Path(cli_args.scores)
+  param_path = Path(cli_args.parameters_file)
+  tmpl_fields_path = Path(cli_args.templates_file)
   os.environ["OLLAMA_HOST"] = cli_args.ollama_host
 
   # read reference data file and experimental parameters
   reference_data = _read_json(input_dir / "mock_data.json")
-  exp_params = _parse_yaml(input_dir.parent / "experiment_parameters.yaml")
-  template_fields = _parse_template_fields_csv(
-    input_dir.parent / "template_fields.csv", list(exp_params["labs"].keys())
-  )
+  exp_params = _parse_yaml(param_path)
+  templ_names = list(exp_params["labs"].keys()) if "labs" in exp_params else None
+  template_fields = _parse_template_fields_csv(tmpl_fields_path, templ_names)
   exp_params["template_fields"] = template_fields
 
   # if any experiments require OpenAI, check that the API key is available
@@ -486,8 +517,9 @@ def main() -> None:
       logger.error("OPENAI_API_KEY variable is required, but not defined!")
       sys.exit(1)
 
-  # Cleanup the input data files
-  cleanup_inputs(reference_data, input_dir)
+  # Cleanup the input data files (unless user asked to skip)
+  if not cli_args.skip_cleanup:
+    cleanup_inputs(reference_data, input_dir)
 
   # load or create experimental plan table
   llm_out_dir.mkdir(exist_ok=True)

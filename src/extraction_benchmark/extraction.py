@@ -180,7 +180,6 @@ async def run_ollama(
     )
     async for chunk in stream:
       if chunk.message.content:
-        # print(chunk.message.content)
         content += chunk.message.content
         if len(content) > char_cutoff:
           break
