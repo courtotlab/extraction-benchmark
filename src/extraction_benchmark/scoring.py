@@ -372,6 +372,13 @@ def score_response(response: dict, reference: dict) -> pd.DataFrame:
           | ("analysis_type", _)
           | ("sample_type", _)
           | ("analysis_type", _)
+          | ("hospital_name", _)
+          | ("hopital_address", _)
+          | ("patient_name", _)
+          | ("diagnosis", _)
+          | ("hospital_course", _)
+          | ("desc", _)
+          | ("insurance", _)
         ):
           scores.append(score_strings(key, str(val), str(reference[key]), exact=False))
         case _, _:
@@ -520,7 +527,9 @@ def score_simple_list(found: list[Any], expected: list[Any], name: str) -> list[
     exp_item = expected[i]
     found_item = found[j]
 
-    score_entries.append(score_strings(f"{name}[{i}]", str(found_item), str(exp_item)))
+    score_entries.append(
+      score_strings(f"{name}[{i}]", str(found_item), str(exp_item), exact=False)
+    )
 
   return score_entries
 
