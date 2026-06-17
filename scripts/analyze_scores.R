@@ -509,7 +509,9 @@ plot_f1_means_by_prompt <- function(distressed=FALSE) {
   msd <- msd[names(tool_names), prompt_mod_order, ]
 
   prompt_colors <- c("steelblue","darkorange") |> setNames(names(prompt_names))
+  # prompt_colors <- "steelblue" |> setNames(names(prompt_names))
   mode_shades <- 2:4 |> setNames(names(modality_names))
+  # mode_shades <- 2:3 |> setNames(names(modality_names))
 
   bar_colors <- colnames(msd) |> strsplit("&") |> sapply(\(fields)paste0(prompt_colors[fields[[1]]],mode_shades[fields[[2]]])) |> setNames(colnames(msd))
 
