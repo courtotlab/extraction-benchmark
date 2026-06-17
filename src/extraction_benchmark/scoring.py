@@ -129,7 +129,7 @@ def normalize_string(value: str) -> str:
   """
   Normalize strings for evaluation.
 
-  Apply a set of normaliztion rules:
+  Apply a set of normalization rules:
   1. All upper case
   2. Remove transcript versions
   3. VUS -> Variant of uncertain significance
@@ -145,7 +145,7 @@ def normalize_string(value: str) -> str:
     r"NM_\d+(\.\d+)?",  # remove version numbers from transcripts
     r"UNCERTAIN (CLINICAL )?SIGNIFICANCE (\(VUS\))?",  # normalize VUS label
     r"^\d{4}-\d{2}-\d{2}(.*)?",  # remove hours, minutes, seconds from dates
-    r"^\d+(\.0+)",  # remove zero decimals
+    r"^(-)?\d+(\.0+)?",  # remove zero decimals and negative
   ]
   for rule in rules:
     value = _remove_group_matches(value, rule)
