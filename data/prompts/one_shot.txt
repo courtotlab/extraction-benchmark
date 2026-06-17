@@ -81,119 +81,214 @@ Here is an example of a document and its correct extraction:
 
 <example>
 <document>
-123 Main St, West , Toronto, ON, A4B5G9
-Toronto Cancer Hospital Division of Tumor Sequencing and Diagnostics
-info@och,on.ca fax: 416-456-7890 phone: 437-416-6470
-Draft MOLECULAR GENETICS LABORATORY RESULTS Patient Info: Patient Information: Name: Physician Name: DOB: Health Card: Sex: MRN #; Clinic: Hospital for Sick Children (Toronto)
-Procedure Date 2024-02-23
-Accession Date 2024-02-24
-Report Date 2024-02-26
-Report Details
-Genome Reference GRCh38 Sequencing Range Gene panel, Repeat expansion analysis
-Referral Reason Research
-Analysis Location North York General Hospital (Toronto) Table of findings: Gene Information Interpretation AKAPO 8 8,9713A>T  p.Asp3238Val homozy- Variant Of uncertain gous clinical significance
-Summary: One variant of uncertain clinical significance detected . The de- tails regarding the specific mutations are included below:
-MRN:
-Date: 2024-02-23
-Page 1
+Draft--- Do not use for patient care decisions
+------------------------------------------------------------------------
 
-123 Main St, West , Toronto, ON, A4B5G9
-Toronto Cancer Hospital Division of Tumor info@och,on.ca Sequencing and fax: 416-456-7890 Diagnostics phone: 437-416-6470 Variant Interpretation: The interpretation of these variants is as follows: One variant of uncertain clinical significance was detected in the sample.
-Variant 1 of 1
-Gene AKAPQ
-Variant C.9713A>T
-Amino
-Zygosity homozygous
-p.Asp3238Val
-Variant of uncertain clinical significance
-The 9.916 950552A>Tvariant occurs in chromosome chr7 within the AKAPO gene , and it causes C.9713A>T change at position 3238 in exon 8 causing the muta- tion p.Asp3238Val This mutation has been identified in 40 families. It has a population frequency of 5.08e-04 (241 alleles in 474545 total alleles tested), in- dicating it is a relatively common variant in the general population, It causes an amino acid substitution, which replaces aspartate with valine ClinVar and other genomic databases report the AKAPQ €.9713A>T variant as clinically rel- evant based on aggregated evidence. The clinical implications of this variant are not yet fully understood. At present , available data is insufficient to confirm its role in disease_ The affected nucleotide lies within a region that is highly conserved across ver- tebrate species, which suggests functional importance and evolutionary con- straint, This variant is not currently strongly implicated in specific diseases according to ClinVar records (VCV accession: VCV002233128). Supporting studies and case reports can be found in the scientific literature, Relevant PubMed references include: 774292710, 554428923,264019035
-MRN:
-Date: 2024-02-23
-Page 2
+  ---------- ----------------------------------------------------------- --
+  **CHEO**   **Genetics Diagnostic Laboratory**\                         
+             401 Smyth Rd, Ottawa, Ontario K1H 8L1\                      
+             (Phone) 613-737-7600 ext. 3796 $\cdot$ (Fax) 613-738-4814   
 
-123 Main St, West , Toronto, ON, A4B5G9
-Toronto Cancer Hospital Division of Tumor info@och,on.ca Sequencing and fax: 416-456-7890 Diagnostics phone: 437-416-6470 According to ClinVar; the evidence collected to date is insufficient to firmly es- tablish the clinical significance of this variant, therefore it is classified as a variant of uncertain clinical significance Test Details:
-Genes Analyzed and mRNA sequence (NM_): CBFA2T3 and NM_005187.6, ALDH2 and NM_000690.4, MYB and NM_001 130173.2. ACVRIB and NM_004302.5. CTCF and NM_006565.4. AKAPQ and NM_005751,5, ATFTIP and NM_018179.5. DDIT3 and NM_004083.6. 8 total genes tested 
-Recommendations A precision oncology approach Is advised. These mutations are known onco- genic drivers, Iinked to constitutive pathway activation: Targeted therapies, including hormone-correcting agents, may be considered, guided by clinical judgment, PI3K inhibitors could be explored in trials for PIK3CA-mutated cases; Germline testing is not indicated, as all mutations are consistent with somatic events, A multidisciplinary tumour board review is recommended to integrate findings into care. Additional testing may be pursued at the physician's discre- tion:
-Methodology CtDNA waS sequenced with Gene panel and was analyzed using Repeat ex- pansion analysis covering all coding exons and adjacent intronic regions. Target enrichment was performed with hybrid capture (Twist Bioscience) , followed by Illumina NextSeq sequencing: Reads were aligned to GRCh37 using BWA-MEM, and variants called with GATK. Annotation was performed in VarSeq using pop ulation databases, predictive algorithms, and ClinVar: CNVs were assessed with CNVkit and confirmed by MLPA when applicable; Regions with pseudogene in- terference, such as PMSZ , were validated using long-range PCR and Sanger se- quencing: Mean read depth exceeded 30Ox , with a minimum threshold of 5Ox. Analytical sensitivity is >99% for SNVs /indels and >95% for exon-level CNVs, Only variants classified as pathogenic, likely pathogenic, or variants of uncertain sig- nificance (VUS) are reported, per ACMGIAMP guidelines (PMID: 25741868). Limitations This test was developed and validated in a certified clinical laboratory: Limi- tations include reduced sensitivity in pseudogene regions (e.g., PMS2 , CHEK2) , andinability to detect certain structural variants (e.g., MSHZ inversions) , deepin- tronic changes, or low-level mosaicism. PMS2 exons 11-15 are not analyzed. In- terpretations reflect current knowledge and may be updated as new evidence emerges;
-MRN:
-Date: 2024-02-23
-Page 3
+  ---------- ----------------------------------------------------------- --
 
-123 Main St, West , Toronto, ON, A4B5G9
-Toronto Cancer Hospital Sequencing and Division of Tumor fax: 416-456-7890 info@och,on.ca Report Electronically Verified and Signed Diagnostics phone: 437-416-6470 by: 1 Mock
-MRN:
-Date: 2024-02-23
-Page 4
+  --------------- ---------- --------------- ----------
+  **Patient:**    Redacted   **Location:**   Redacted
+  **DOB/Sex:**    Redacted   **Pedigree:**   Redacted
+  **CHEO MRN:**   Redacted                   
+  --------------- ---------- --------------- ----------
+
+Hereditary Breast/Ovarian/Prostate Cancer Panel (In process)
+
+------------------------------------------------------------------------
+
+  ---------------- ------------------------------- -------------- ---------------------
+  Authorized by:   Redacted                        Collected:     2021-08-17 07:24:43
+  Ordered by:      Sinai Health System (Toronto)   Received:      2021-08-18 14:50:44
+  ID:              Redacted                        Verified On:   2021-08-19 10:28:31
+  ---------------- ------------------------------- -------------- ---------------------
+
+# Specimens 
+
+**A** - Hereditary Breast/Ovarian/Prostate Cancer Panel, Genetics Blood,
+edta x2
+
+# Reason for Referral 
+
+(GD1) \> or = 5% likelihood of Pathogenic/Likely Pathogenic variant in
+affected or unaffected individual
+
+# MOLECULAR GENETIC RESULT 
+
+Summary of Results: **A pathogenic variant detected.**
+
+Finding(s):
+
+  **Gene**   **Variant (c.)**   **Amino acid change (p.)**   **Zygosity**   **Interpretation**
+  ---------- ------------------ ---------------------------- -------------- --------------------
+  ARID5B     c.2569C\>A         p.Pro857Thr                  heterozygous   Pathogenic
+
+# INTERPRETATION 
+
+A pathogenic variant was detected in this individual. The interpretation
+of this result is summarized below.
+
+The c.2569C\>A variant in ARID5B It was identified in 1/250010 (0.0004%)
+of alleles tested from control populations in the Genome Aggregation
+Database (gnomAD). To the best of our knowledge, it has not been
+previously reported in the literature. The Pro857 residue is weakly
+conserved in evolution. In silico analysis programs (SIFT, PolyPhen-2,
+Mutation Taster) predict this variant not to be tolerated . This variant
+is listed in ClinVar (VCV007921369). In accordance with existing
+evidence, this variant is therefore classified as a pathogenic variant.
+
+Please refer to the ClinVar database for further infomation about this
+variant(s). If a formal variant re-evaluation is required, please
+contact our laboratory.
+
+No other clinically relevant sequence variants or large deletions or
+duplications were detected in the genes tested (see the Test Details
+section). Although no other pathogenic variants have been found, as the
+analytical sensitivity of this analysis is based on results of
+validation studies performed by our laboratory is $\sim 99\%$, it is
+possible that a pathogenic variant not detectable by these assays is
+present in one of these genes. In addition; as this test does not detect
+all clinically significant variants associated with this disorder, it is
+also possible that a pathogenic variant in another gene not tested is
+present in this individual.
+
+Genes included in this panel are associated with an increased risk for
+certain types of hereditary cancers. While the majority of cancers occur
+sporadically, a proportion may be due to inherited pathogenic variants
+in genes associated with cancer. Pathogenic variants in these genes are
+associated with an increased susceptibility to certain malignancies,
+autosomal recessive conditions, and may cause other non-cancer related
+symptoms. It is important to note that not all individuals with a
+pathogenic variant will develop cancer. Genetic testing of at-risk first
+degree relatives should be considered once identification of a variant
+has occurred in a proband. The reproductive implications of being a
+carrier of a pathodenic variant should be discussed with an appropriate
+health care professional. Genetic counselling is recommended concerning
+the implications of these results to this individual and this
+individual's family.
+
+This assay is based on the current state of knowledge of the genetic
+basis of this disorder and designed to identify constitutional genetic
+changes in the tested gene/loci (see Test Details). The possibility of
+null alleles due to rare family specific variants in the primer/probe
+binding sites cannot be completely ruled out. Family relationships are
+assumed as stated and no attempt has been made to verify these
+relationships. Laboratory results are subject to approximately 0.5%
+error in any of the pre-analytical, analytical or post-analytical phases
+of the test \[Clin. Chem 48(5).691-698\].
+
+# Methodology Used 
+
+Next Generation Sequencing HEREDITARY BREAST AND OVARIAN CANCER 5 gene
+panel, HOXB13 c.251G\>A (p.Gly84Glu) variant sequencing, and MLPA for a
+subset of genes
+
+Electronically signed by \[Not yet signed\] on \[Date\] at \[Time\]
+
+# Test Details 
+
+Genes analyzed: MDC1, CUX1, ARID5B, TCEA1, POTEF,
+
+Genomic DNA is enriched for targeted regions using custom designed
+capture probes (KAPA HyperChoice) and a hybridization-based protocol
+(KAPA HyperPlus Custom Library, KAPA Biosystems-Roche) followed by next
+generation sequencing (NGS) on a NextSeq platform (Illumina). Read
+alignment and single nucleotide variants (SNV) and small
+insertion/deletions (indels) calling are performed using NextGENe
+software (SNP/INDEL analysis, SoftGenetics) SNVs and indels within
+coding exons and 20 bps flanking regions are analyzed. Certain known
+likely pathogenic or pathogenic variants outside these reqions are also
+included in the analysis (for a complete list please contact our
+laboratory). Exonic deletions and duplications in all targeted genes
+(except PMS2) are called using an in-house copy number variant (CNV)
+analysis algorithm (PMID 27376475). Multiplex ligation-dependent probe
+amplification (MLPA) is performed for CNV analysis for PMS2. Note that
+some MLPA kits used as part of this test may contain probes for genes or
+variants that are not included in our test panels, which could result in
+incidental findings. All reported variants are confirmed by a second
+technology including Sanger sequencing; MLPA, long range PCR, or qPCR.
+Based on validation study results, this assay achieves 99% analytical
+sensitivity and specificity for SNV, indels \<10bp in length and exonic
+deletions and duplications; however, sensitivity for indels larger than
+10bp but smaller than a full exon may be reduced. This assay is not
+designed and validated for detection of mosaicism. The following genes
+and corresponding exons are prone to misalignment due to presence of
+highly homologous regions in the genome and therefore, are at increased
+risk of false results: ATM exon 28, CHEK2 exons 11-15, PTEN exon 9 and
+PMS2 exons 1-5, 9, 11-15 (PMID 27228465). Variant nomenclature is based
+on the Human Genome Variation Society guidelines. Variant interpretation
+and classification is based on published guidelines (PMID 25741868).
+Only pathogenic, likely pathogenic, and variants of uncertain clinical
+significance are reported.
+
+The following transcripts are used in this analysis: MDC1 (NM_014641.3),
+CUX1 (NM_181552.4), ARID5B (NM_032199.3), TCEA1 (NM_006756.4), POTEF
+(NM_001099771.2),
+
+\*CNV analysis only; \^single variant c.251G\>A, p.(Gly84Glu) only
 
 </document>
+
 <extraction>
-```json
+
 {
-  "date_collected": "2024-02-23",
-  "date_received": "2024-02-24",
-  "date_verified": "2024-02-26",
-  "report_type": "Molecular Genetics",
-  "testing_context": "Research",
-  "ordering_clinic": "Hospital for Sick Children (Toronto)",
-  "testing_laboratory": "Toronto Cancer Hospital (Toronto)",
-  "sequencing_scope": "Gene panel",
-  "tested_genes": {
-    "CBFA2T3": {
-    "gene_symbol": "CBFA2T3",
-    "refseq_mrna": "NM_005187.6" 
+    "date_collected": "2021-08-17 07:24:43",
+    "date_received": "2021-08-18 14:50:44",
+    "date_verified": "2021-08-19 10:28:31",
+    "report_type": "Molecular Genetics",
+    "testing_context": "",
+    "ordering_clinic": "Sinai Health System (Toronto)",
+    "testing_laboratory": "CHEO (Ottawa)",
+    "sequencing_scope": "Gene panel",
+    "tested_genes": {
+        "MDC1": {
+            "gene_symbol": "MDC1",
+            "refseq_mrna": "NM_014641.3"
+        },
+        "CUX1": {
+            "gene_symbol": "CUX1",
+            "refseq_mrna": "NM_181552.4"
+        },
+        "ARID5B": {
+            "gene_symbol": "ARID5B",
+            "refseq_mrna": "NM_032199.3"
+        },
+        "TCEA1": {
+            "gene_symbol": "TCEA1",
+            "refseq_mrna": "NM_006756.4"
+        },
+        "POTEF": {
+            "gene_symbol": "POTEF",
+            "refseq_mrna": "NM_001099771.2"
+        }
     },
-    "ALDH2": {
-    "gene_symbol": "ALDH2",
-    "refseq_mrna": "NM_000690.4" 
-    },
-    "MYB": {
-    "gene_symbol": "MYB",
-    "refseq_mrna": "NM_001130173.2" 
-    },
-    "ACVR1B": {
-    "gene_symbol": "ACVR1B",
-    "refseq_mrna": "NM_004302.5" 
-    },
-    "CTCF": {
-    "gene_symbol": "CTCF",
-    "refseq_mrna": "NM_006565.4" 
-    },
-    "AKAP9": {
-    "gene_symbol": "AKAP9",
-    "refseq_mrna": "NM_005751.5" 
-    },
-    "ATF7IP": {
-    "gene_symbol": "ATF7IP",
-    "refseq_mrna": "NM_018179.5" 
-    },
-    "DDIT3": {
-    "gene_symbol": "DDIT3",
-    "refseq_mrna": "NM_004083.6" 
-    } 
-  },
-  "num_tested_genes": 8,
-  "sample_type": "ctDNA",
-  "analysis_type": "Variant analysis",
-  "reference_genome": "GRCh37"
-  "variants": [
-    {
-      "gene_symbol": "AKAP9",
-      "variant_id": "VCV002233128",
-      "chromosome": "chr7",
-      "hgvsg": "g.91950552A>T",
-      "hgvsc": "c.9713A>T",
-      "hgvsp": "p.Asp3238Val",
-      "transcript_id": "NM_005751.5",
-      "exon": "8",
-      "zygosity": "homozygous",
-      "interpretation": "Variant of Uncertain Significance (VUS)",
-      "maf": "5.08e-04",
-      "type":"missense",
-    }
-  ]
+    "num_tested_genes": 5,
+    "sample_type": "Blood",
+    "analysis_type": "Genetics",
+    "variants": [
+        {
+            "gene_symbol": "ARID5B",
+            "variant_id": "VCV007921369",
+            "chromosome": "",
+            "hgvsg": "",
+            "hgvsc": "c.2569C>A",
+            "hgvsp": "p.Pro857Thr",
+            "type": "missense",
+            "transcript_id": "",
+            "exon": "",
+            "zygosity": "heterozygous",
+            "interpretation": "Pathogenic",
+            "maf": "
+        }
+    ],
+    "num_variants": 1,
+    "reference_genome": ""
 }
-```
+
 </extraction>
 </example>
 
