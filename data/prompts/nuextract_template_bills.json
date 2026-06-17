@@ -1,0 +1,25 @@
+{
+  "hospital_name": "string",
+  "hospital_address": "string",
+  "hospital_npi": "string",
+  "patient_name": "string",
+  "patient_dob": "date-time",
+  "patient_mrn": "string",
+  "diagnosis": "string",
+  "icd_10": "string",
+  "hospital_course": "string",
+  "procedures": [
+    {
+      "desc": "string",
+      "cpt": "string",
+      "price": "number"
+    }
+  ],
+  "medications": [
+    "string"
+  ],
+  "insurance": "string",
+  "total_charges": "number",
+  "insurance_adjustment": "number",
+  "patient_responsibility": "number"
+}
