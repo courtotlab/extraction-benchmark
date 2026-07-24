@@ -17,7 +17,6 @@ dependencies = [
     "pyyaml>=6.0.3",
 ]
 
-
 [project.scripts]
 bench = "extraction_benchmark.main:main"
 
@@ -32,6 +31,10 @@ dev = [
     "ruff>=0.15.12",
     "types-pyyaml>=6.0.12.20260408",
 ]
+
+[tool.uv]
+#ward against zero-days and supply chain attacks
+exclude-newer = "1 week"
 
 [tool.ruff]
 indent-width = 2
