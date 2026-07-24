@@ -26,7 +26,7 @@ import numpy as np
 
 
 def _align_strings(
-  ref_str, found_str, match_score=1, mismatch_score=1, gap_penalty=1
+  ref_str, found_str, match_score=1, mismatch_score=1, gap_penalty=1, gap_code=126
 ) -> tuple[int, int, int, int]:
   """
   Align two strings, character by character, using the
@@ -38,12 +38,15 @@ def _align_strings(
     match_score(int): Score for character match (default: 1)
     mismatch_score(int): Penalty for character mismatch (default: 1)
     gap_penalty(int): Penalty for gap (insertion/deletion) (default: 1)
+    gap_code(int): Character code for the gap indicator (default: 126 = "~")
 
   Returns:
     tuple: Tuple containing matches, mismatches, insertions, and deletions
   """
   nx = len(ref_str)
   ny = len(found_str)
+
+  gap_char = chr(gap_code)
 
   # Initialize scoring matrix
   F = np.zeros((nx + 1, ny + 1))
@@ -94,11 +97,11 @@ def _align_strings(
     # Check if we came from above (deletion from ref_str)
     if i > 0 and F[i, j] == F[i - 1, j] - gap_penalty:
       aligned_ref.append(ref_str[i - 1])
-      aligned_found.append("-")
+      aligned_found.append(gap_char)
       i -= 1
     # Otherwise, came from left (insertion into ref_str)
     elif j > 0:
-      aligned_ref.append("-")
+      aligned_ref.append(gap_char)
       aligned_found.append(found_str[j - 1])
       j -= 1
 
@@ -115,9 +118,9 @@ def _align_strings(
   for a, b in zip(aligned_ref, aligned_found):
     if a == b:
       matches += 1
-    elif a == "-":
+    elif a == gap_char:
       insertions += 1  # Character in found_str but not in ref_str
-    elif b == "-":
+    elif b == gap_char:
       deletions += 1  # Character in ref_str but not in found_str
     else:
       mismatches += 1  # Different characters
@@ -371,9 +374,8 @@ def score_response(response: dict, reference: dict) -> pd.DataFrame:
           | ("testing_laboratory", _)
           | ("analysis_type", _)
           | ("sample_type", _)
-          | ("analysis_type", _)
           | ("hospital_name", _)
-          | ("hopital_address", _)
+          | ("hospital_address", _)
           | ("patient_name", _)
           | ("diagnosis", _)
           | ("hospital_course", _)
@@ -672,7 +674,7 @@ def score_dict_of_dicts(found: dict, expected: dict, name: str) -> list[dict]:
     # FIXME: found_gene 'int' object has no attribute 'keys'
     if isinstance(found_gene, dict):
       for key in found_gene.keys():
-        if key not in exp_keys:
+        if key not in exp_gene:
           score_entries.append(
             dict(ref=f"{name}.{ek}.{key}", expected=None, found=key, tp=0, fp=1, fn=0)
           )
