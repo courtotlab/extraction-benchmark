@@ -513,7 +513,7 @@ def main() -> None:
   if any(
     tool_config["env"] == "openai" for tool_config in exp_params["tools"].values()
   ):
-    if not os.environ["OPENAI_API_KEY"]:
+    if "OPENAI_API_KEY" not in os.environ:
       logger.error("OPENAI_API_KEY variable is required, but not defined!")
       sys.exit(1)
 
