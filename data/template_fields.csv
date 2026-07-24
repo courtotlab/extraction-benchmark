@@ -18,9 +18,9 @@ variants,direct,direct,direct,direct,direct,direct,direct,direct,direct,direct,d
 variant_id,direct,direct,direct,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable
 chromosome,unavailable,direct,direct,unavailable,unavailable,unavailable,unavailable,unavailable,direct,unavailable,unavailable
 hgvsg,unavailable,unavailable,direct,unavailable,unavailable,unavailable,unavailable,unavailable,direct,unavailable,unavailable
-hgvsc,direct,direct,direct,direct,unavailable,direct,direct,direct,direct,direct,direct
-hgvsp,direct,direct,direct,direct,unavailable,direct,direct,direct,direct,direct,direct
-transcript_id,unavailable,unavailable,unavailable,direct,unavailable,direct,direct,unavailable,direct,direct,direct
+hgvsc,direct,direct,direct,direct,direct,direct,direct,direct,direct,direct,direct
+hgvsp,direct,direct,direct,direct,direct,direct,direct,direct,direct,direct,direct
+transcript_id,unavailable,unavailable,unavailable,direct,direct,direct,direct,unavailable,direct,direct,direct
 exon,unavailable,direct,direct,direct,unavailable,direct,indirect,direct,direct,unavailable,unavailable
 zygosity,direct,direct,direct,direct,unavailable,direct,direct,unavailable,direct,direct,direct
 interpretation,direct,direct,direct,direct,direct,direct,direct,direct,direct,direct,direct
