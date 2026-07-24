@@ -49,13 +49,13 @@ Your response must follow the below JSON format exactly:
   "tested_genes": {
     "GENE1": {
       "gene_symbol": "GENE1",
-      "refseq_mrna": "NM_xxxxxxx.x"
-    },
+      "refseq_mrna": ""
+    }
   },
   "num_tested_genes": "",
   "sample_type": "",
   "analysis_type": "",
-  "reference_genome": ""
+  "reference_genome": "",
   "variants": [
     {
       "gene_symbol": "",
@@ -69,7 +69,7 @@ Your response must follow the below JSON format exactly:
       "zygosity": "",
       "interpretation": "",
       "maf": "",
-      "type":"",
+      "type":""
     }
   ]
 }
