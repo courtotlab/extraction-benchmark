@@ -75,6 +75,7 @@ class NuExtract:
   def __init__(
     self,
     model_name: str = "numind/NuExtract-2.0-2B",  # "numind/NuExtract-2.0-8B"
+    # model_name: str = "../NuExtract-2.0-2B",  # (for locally downloaded model repo)
   ):
 
     if torch.backends.mps.is_available():
