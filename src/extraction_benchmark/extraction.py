@@ -142,6 +142,7 @@ async def run_ollama(
   input_text: str,
   input_images: list[str] = [],
   temp: float = 0.0,
+  num_ctx: int = 128000,
   char_cutoff=5 * 2**10,  # 5KiB
 ) -> str:
   """
@@ -156,6 +157,7 @@ async def run_ollama(
     input_text(str): the message input text.
     input_images(list[str]): list of base64 encoded image strings.
     temp(float): temperature parameter.
+    num_ctx(int): context length parameter.
     char_cutoff(int): The maximum number of output characters the
       model will be allowed to return.
 
@@ -174,7 +176,10 @@ async def run_ollama(
   content = ""
   try:
     stream = await client.chat(
-      model=model, messages=[message], options={"temperature": temp}, stream=True
+      model=model,
+      messages=[message],
+      options={"temperature": temp, "num_ctx": num_ctx},
+      stream=True,
     )
     async for chunk in stream:
       if chunk.message.content:
