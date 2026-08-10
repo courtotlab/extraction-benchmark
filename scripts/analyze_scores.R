@@ -268,6 +268,8 @@ plot_processing_times <- function() {
     xlab="#output tokens",
     ylab="processing time",
     log="xy",
+    xlim=c(70,3500),
+    ylim=c(1/60,10),
     axes=FALSE,
     pch=parsing_shapes[parsing_quality],
     cex=0.5,
@@ -379,77 +381,6 @@ pdf(paste0(outdir,"/FigS1D_f1_distributions_all.pdf"),7,7)
 plot_f1_distributions(parseable_only=FALSE)
 dev.off()
 
-#####################
-# Statistical tests between distributions
-#####################
-
-list(
-  list(
-    question="Is Gemma better than GPT on raw text?",
-    p=with(score_data,wilcox.test(
-      f1[which(tool=="gemma3:27b" & prompt=="zero_shot" & modality=="raw_text")],
-      f1[which(tool=="gpt-4.1-mini" & prompt=="zero_shot" & modality=="raw_text")],
-      paired=TRUE,alternative="greater"
-    ))$p.value
-  ),
-  list(
-    question="Is GPT better than Gemma on Images?",
-    p=with(score_data,wilcox.test(
-      f1[which(tool=="gemma3:27b" & prompt=="zero_shot" & modality=="image" & quality=="original")],
-      f1[which(tool=="gpt-4.1-mini" & prompt=="zero_shot" & modality=="image"& quality=="original")],
-      paired=TRUE,alternative="less"
-    ))$p.value
-  ),
-  list(
-    question="Are zero-shot prompts better than one-shot on gemma/raw?",
-    p=with(score_data,wilcox.test(
-      f1[which(tool=="gemma3:27b" & prompt=="zero_shot" & modality=="raw_text")],
-      f1[which(tool=="gemma3:27b" & prompt=="one_shot" & modality=="raw_text")],
-      paired=TRUE,alternative="greater"
-    ))$p.value
-  ),
-  list(
-    question="Is GPT better on images than on OCR?",
-    p=with(score_data,wilcox.test(
-      f1[which(tool=="gpt-4.1-mini" & prompt=="zero_shot" & modality=="image" & quality=="original")],
-      f1[which(tool=="gpt-4.1-mini" & prompt=="zero_shot" & modality=="ocr_text" & quality=="original")],
-      paired=TRUE,alternative="greater"
-    ))$p.value
-  ),
-  list(
-    question="Is Gemma better on OCR than on images?",
-    p=with(score_data,wilcox.test(
-      f1[which(tool=="gemma3:27b" & prompt=="zero_shot" & modality=="image" & quality=="original")],
-      f1[which(tool=="gemma3:27b" & prompt=="zero_shot" & modality=="ocr_text" & quality=="original")],
-      paired=TRUE,alternative="less"
-    ))$p.value
-  ),
-  list(
-    question="Is GPT better with one-shot prompts?",
-    p=with(score_data,wilcox.test(
-      f1[which(tool=="gpt-4.1-mini" & prompt=="zero_shot" & modality=="raw_text" & quality=="original")],
-      f1[which(tool=="gpt-4.1-mini" & prompt=="one_shot" & modality=="raw_text" & quality=="original")],
-      paired=TRUE,alternative="less"
-    ))$p.value
-  )
-) |> as.df() -> pvals
-pvals$q <- p.adjust(pvals$p, method="fdr")
-
-
-# filtered_data <- score_data[which(score_data$quality=="original"),]
-# f1_by_tag <- with(filtered_data,tapply(f1, paste(tool,prompt,modality,sep="&") ,c))
-# cats <- do.call(rbind,strsplit(names(f1_by_tag),"&"))
-
-# #generate all testing combinations
-# all_tests <- combn(names(f1_by_tag),2,simplify=FALSE) |> lapply(\(x) list(
-#   a=x[[1]],
-#   b=x[[2]],
-#   p=wilcox.test(f1_by_tag[[x[[1]]]],f1_by_tag[[x[[2]]]],paired=TRUE)$p.value
-# ))|>as.df()
-# all_tests$q <- p.adjust(all_tests$p,method="fdr")
-# all_tests[all_tests$q < 0.05,1:2]
-
-
 ####################
 # Correlation across documents
 ####################
@@ -484,6 +415,116 @@ plot_doc_cor()
 dev.off()
 
 
+#####################
+# Statistical tests between distributions
+#####################
+
+# Questions to answer:
+# 1. Which tool is best on raw text?
+#  GPT.raw1=91.161918% ; Gemma.raw.1=91.085311% (Δ0.076607%); Mistral.raw.1=90.512149% (Δ0.649769%)
+# 2. Which tool is best on original quality (ocr/img)?
+#  GPT.img1=88.16638% ; Mistral.ocr1=85.01601% (Δ3.15037%)
+
+# 2a. Which tool is best on distressed quality (ocr/img)?
+
+list(
+  list(
+    question="Is GPT better than Gemma on raw text?",
+    p=with(score_data,wilcox.test(
+      f1[which(tool=="gemma3:27b" & prompt=="one_shot" & modality=="raw_text" & quality=="original")],
+      f1[which(tool=="gpt-4.1-mini" & prompt=="one_shot" & modality=="raw_text" & quality=="original")],
+      paired=TRUE,alternative="two.sided"
+    ))$p.value,
+    idx="gpt:raw1|gemma:raw1"
+  ),
+  list(
+    question="Is GPT better than Mistral on raw text?",
+    p=with(score_data,wilcox.test(
+      f1[which(tool=="mistral-small3.1:latest" & prompt=="one_shot" & modality=="raw_text" & quality=="original")],
+      f1[which(tool=="gpt-4.1-mini" & prompt=="one_shot" & modality=="raw_text" & quality=="original")],
+      paired=TRUE,alternative="less"
+    ))$p.value,
+    idx="gpt:raw1|mistral:raw1"
+  ),
+  list(
+    question="Is Gemma better than Mistral on raw text?",
+    p=with(score_data,wilcox.test(
+      f1[which(tool=="mistral-small3.1:latest" & prompt=="one_shot" & modality=="raw_text" & quality=="original")],
+      f1[which(tool=="gemma3:27b" & prompt=="one_shot" & modality=="raw_text" & quality=="original")],
+      paired=TRUE,alternative="less"
+    ))$p.value,
+    idx="gemma:raw1|mistral:raw1"
+  ),
+  list(
+    question="Is GPT/image better than mistral/OCR?",
+    p=with(score_data,wilcox.test(
+      f1[which(tool=="mistral-small3.1:latest" & prompt=="one_shot" & modality=="ocr_text" & quality=="original")],
+      f1[which(tool=="gpt-4.1-mini" & prompt=="one_shot" & modality=="image" & quality=="original")],
+      paired=TRUE,alternative="less"
+    ))$p.value,
+    idx="gpt:img1|mistral:ocr1"
+  ),
+  list(
+    question="Is GPT/image better than Mistral/image on distressed docs?",
+    p=with(score_data,wilcox.test(
+      f1[which(tool=="mistral-small3.1:latest" & prompt=="one_shot" & modality=="image" & quality=="distressed")],
+      f1[which(tool=="gpt-4.1-mini" & prompt=="one_shot" & modality=="image" & quality=="distressed")],
+      paired=TRUE,alternative="less"
+    ))$p.value,
+    idx="gpt:img1|mistral:img1"
+  )
+) |> as.df() -> pvals
+pvals$q <- p.adjust(pvals$p, method="fdr")
+
+
+# filtered_data <- score_data[which(score_data$quality=="original"),]
+# f1_by_tag <- with(filtered_data,tapply(f1, paste(tool,prompt,modality,sep="&") ,c))
+# cats <- do.call(rbind,strsplit(names(f1_by_tag),"&"))
+
+# #generate all testing combinations
+# all_tests <- combn(names(f1_by_tag),2,simplify=FALSE) |> lapply(\(x) list(
+#   a=x[[1]],
+#   b=x[[2]],
+#   p=wilcox.test(f1_by_tag[[x[[1]]]],f1_by_tag[[x[[2]]]],paired=TRUE)$p.value
+# ))|>as.df()
+# all_tests$q <- p.adjust(all_tests$p,method="fdr")
+# all_tests[all_tests$q < 0.05,1:2]
+
+
+draw_qval <- function (entry, xs, group_idx, cat_idx, h = 1.1, s = 0.02, th = 0.02) {
+  p <- entry$q
+
+  idx_labels <- strsplit(entry$idx,"\\|")[[1]] |> strsplit(":") |> 
+    setNames(c("from","to")) |> lapply(setNames,c("tool","cat"))
+
+  idxs <- lapply(
+    idx_labels, 
+    \(labels) {
+      c(tool=group_idx[[labels[["tool"]]]], cat=cat_idx[[labels[["cat"]]]])
+    }
+  )
+
+  i <- xs[idxs[["from"]][["cat"]], idxs[["from"]][["tool"]]]
+  j <- xs[idxs[["to"]][["cat"]], idxs[["to"]][["tool"]]]
+
+  pExpr <- if (p < 0.001) {
+    if (p < 2.2e-16) {
+      expression(q < 2.2 %*% 10^-16)
+    }
+    else {
+      expo <- floor(log10(p))
+      sfd <- signif(p * 10^-expo, digits = 3)
+      bquote(q == .(sfd) %*% 10^.(expo))
+    }
+  }
+  else {
+    sprintf("q = %.03f", p)
+  }
+  lines(c(i + s, i + s, j - s, j - s), c(h - th, h, h, h - th))
+  text(mean(c(i, j)), h, pExpr, pos = 3, cex = 0.7)
+  return(invisible(NULL))
+}
+
 
 #####################
 # F1 score means barplot
@@ -508,6 +549,9 @@ plot_f1_means_by_prompt <- function(distressed=FALSE) {
   # #sort by label order above
   msd <- msd[names(tool_names), prompt_mod_order, ]
 
+  #print the means for manual inspection
+  print(msd[,,1])
+
   prompt_colors <- c("steelblue","darkorange") |> setNames(names(prompt_names))
   # prompt_colors <- "steelblue" |> setNames(names(prompt_names))
   mode_shades <- 2:4 |> setNames(names(modality_names))
@@ -523,11 +567,13 @@ plot_f1_means_by_prompt <- function(distressed=FALSE) {
   xs <- barplot(
       t(msd[,,1]), beside=TRUE, space=c(0,1.5),
       names.arg=tool_names,
-      ylim=c(0,1),
+      ylim=c(0,1.2),
+      axes=FALSE,
       col=bar_colors, border=NA, 
       ylab=expression("Mean"~F[1]~"score"), 
       main=bquote("Mean"~F[1]~.(qual_label))
   )
+  axis(2,seq(0,1,.2))
   stderr <- msd[,,2]/sqrt(msd[,,3])
   # draw the error bars
   errorBars(
@@ -540,14 +586,18 @@ plot_f1_means_by_prompt <- function(distressed=FALSE) {
   rect(xna-0.5, 0, xna+0.5, 100, col="gray", density=20,border=NA)
   #draw stat-test brackets
   if (!distressed){
-    drawPvalBracket(pvals$q[[1]], xs[1,1], xs[1,2], h = .7, th = .02)
-    drawPvalBracket(pvals$q[[2]], xs[3,1], xs[3,2], h = .8, th = .02)
-    drawPvalBracket(pvals$q[[3]], xs[1,2], xs[4,2], h = .7, th = .02)
-    drawPvalBracket(pvals$q[[4]], xs[2,1], xs[3,1], h = .6, th = .02)
-    drawPvalBracket(pvals$q[[5]], xs[2,2], xs[3,2], h = .6, th = .02)
+    base = 0.95
+    group_idx <- c(gpt=1, gemma=2, llama=3, mistral=4, nuextract=5)
+    cat_idx <- c(raw0=1, ocr0=2, img0=3, raw1=4, ocr1=5, img1=6)
+    draw_qval(pvals[1,], xs, group_idx=group_idx, cat_idx=cat_idx, h = base+.1)
+    # draw_qval(pvals[2,], xs, group_idx=group_idx, cat_idx=cat_idx, h = base+.2)
+    draw_qval(pvals[3,], xs, group_idx=group_idx, cat_idx=cat_idx, h = base+.1)
+    draw_qval(pvals[4,], xs, group_idx=group_idx, cat_idx=cat_idx, h = base)
+  } else {
+    group_idx <- c(gpt=1, gemma=2, llama=3, mistral=4, nuextract=5)
+    cat_idx <- c(ocr0=1, img0=2, ocr1=3, img1=4)
+    draw_qval(pvals[5,], xs, group_idx=group_idx, cat_idx=cat_idx, h = 0.9)
   }
-  # drawPvalBracket(pvals[[1]], xs[2,1], xs[2,2], h = 88, th = 2)
-  # drawPvalBracket(pvals[[2]], xs[1,1], xs[3,1], h = 78, th = 2)
   # add grid lines
   grid(NA,NULL)
   # add legend
@@ -566,16 +616,16 @@ plot_f1_means_by_prompt <- function(distressed=FALSE) {
   par(op)
 }
 
-pdf(paste0(outdir,"/Fig1B_f1_means.pdf"),7,7)
+pdf(paste0(outdir,"/Fig1B_f1_means.pdf"),7,6)
 plot_f1_means_by_prompt(distressed=FALSE)
 dev.off()
 
-pdf(paste0(outdir,"/FigS1B_f1_means_distressed.pdf"),7,7)
+pdf(paste0(outdir,"/FigS1B_f1_means_distressed.pdf"),7,6)
 plot_f1_means_by_prompt(distressed=TRUE)
 dev.off()
 
 
-###################
+##################
 # F1 by template
 ##################
 
