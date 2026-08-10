@@ -17,9 +17,33 @@ dependencies = [
     "pdf2image>=1.17.0",
     "pyyaml>=6.0.3",
     "qwen-vl-utils>=0.0.14",
-    "torch>=2.11.0",
+#    "torch>=2.11.0",
     "transformers>=4.45.0,<5.0.0",
 ]
+
+[tool.pixi.project]
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[tool.pixi.feature.gpu.system-requirements]
+cuda = "12.6"
+
+[tool.pixi.feature.gpu.dependencies]
+pytorch = ">=2.10"
+#cuda-version = "12.6.*"
+
+[tool.pixi.feature.cpu.dependencies]
+pytorch = ">=2.10"
+
+[tool.pixi.environments]
+cpu = ["cpu"]
+default = ["gpu"]
+
+[tool.pixi.pypi-dependencies]
+extraction-benchmark = { path = ".", editable = true }
+
+[tool.pixi.dependencies]
+r-base = ">=4.6.0,<4.7"
 
 [project.scripts]
 bench = "extraction_benchmark.main:main"
