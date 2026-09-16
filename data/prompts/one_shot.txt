@@ -282,7 +282,7 @@ CUX1 (NM_181552.4), ARID5B (NM_032199.3), TCEA1 (NM_006756.4), POTEF
             "exon": "",
             "zygosity": "heterozygous",
             "interpretation": "Pathogenic",
-            "maf": "
+            "maf": ""
         }
     ],
     "num_variants": 1,
