@@ -193,17 +193,17 @@ prompt_names = c(
   one_shot="One-shot"
 )
 template_names <- c(
-  cheo = "CHEO",
-  hamilton = "HHS",
-  sick_kids = "SickKids",
-  kingston = "KHSC",
-  london = "LHSC",
-  nygh = "NYGH",
-  mt_sinai = "MtSinai",
-  trillium = "Trillium",
-  uhn = "UHN",
-  fakeHospital1 = "OCH",
-  fakeHospital2 = "TCH"
+  annsburg = "A",
+  bearington = "B",
+  chimwald = "C",
+  doeford = "D",
+  eagledwell = "E",
+  fawngrove = "F",
+  girton = "G",
+  hedgefield = "H",
+  ibispond = "I",
+  ontario = "J",
+  toronto = "K"
 )
 
 
