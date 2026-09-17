@@ -3,8 +3,11 @@ indir <- "."
 outdir <- "joint"
 dir.create(outdir)
 
+#scan for results_<tag>.csv files
 result_files <- list.files(indir,pattern="results.*csv",full.names=TRUE)
+#extract the tag (e.g. nuextract / ollama)
 result_tags <- do.call(rbind,strsplit(result_files,"_|\\."))[,3]
+#load the tables, clean them, and tag them
 result_tables <- lapply(result_files, read.csv) |>
   lapply(\(tbl) {
     #remove extra columns from pandas
@@ -13,6 +16,7 @@ result_tables <- lapply(result_files, read.csv) |>
   }) |> 
   setNames(result_tags)
 
+#iterate through tags (nuextract/ollama), modify the result and score path links to point to tagged subfolders, and add the tag as a column
 for (tag in result_tags) {
   # result_tables[[tag]]$response <- paste0(tag,"/",result_tables[[tag]]$response)
   result_tables[[tag]]$response <- sub("data",tag,result_tables[[tag]]$response)
@@ -21,7 +25,8 @@ for (tag in result_tags) {
   result_tables[[tag]]$tag <- tag
 }
 
-score_data <-do.call(rbind,result_tables)
+# merge the tables into a single table
+score_data <- do.call(rbind,result_tables)
 
 #set the quality metrics for unparseable results to 0
 score_data[score_data$parsing_quality == "unparseable","f1"] <- 0
