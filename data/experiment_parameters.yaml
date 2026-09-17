@@ -1,15 +1,15 @@
 labs:
-  cheo: "Children's Hospital of Eastern Ontario (Ottawa)"
-  hamilton: "Hamilton Health Sciences (Hamilton)"
-  sick_kids: "Hospital for Sick Children (Toronto)"
-  kingston: "Kingston Health Sciences Centre (Kingston)"
-  london: "London Health Sciences Centre (London)"
-  nygh: "North York General Hospital (Toronto)"
-  mt_sinai: "Sinai Health System (Toronto)"
-  trillium: "Trillium Health Partners (Mississauga)"
-  uhn: "University Health Network (Toronto)"
-  fakeHospital1: "Ontario Cancer Hospital (Toronto)"
-  fakeHospital2: "Toronto Cancer Hospital (Toronto)"
+  annsburg: "Pediatric Hospital of Annsburg (Annsburg)"
+  bearington: "Bearington Health Centre (Bearington)"
+  chimwald: "Chimwald Children's Hospital (Chimwald)"
+  doeford: "Doeford Medical Science Campus (Doeford)"
+  eagledwell: "Eagledwell Health Complex (Eagledwell)"
+  fawngrove: "Fawngrove General Hospital (Fawngrove)"
+  girton: "Golden Field Health (Girton)"
+  hedgefield: "Hedgefield Health Centre (Hedgefield)"
+  ibispond: "Ibispond Medical Nexus (Ibispond)"
+  ontario: "Ontario Cancer Hospital (Toronto)"
+  toronto: "Toronto Cancer Hospital (Toronto)"
 qualities:
   - original
   - distressed
