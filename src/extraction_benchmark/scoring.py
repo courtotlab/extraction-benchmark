@@ -404,9 +404,10 @@ def score_strings(field_name: str, found: str, expected: str, exact=True) -> dic
     matches, mismatches, insertions, deletions = _align_strings(
       expected.upper(), found.upper()
     )
+    al_len = matches + mismatches + insertions + deletions
     fp = (insertions + mismatches) / len(found)
     fn = (deletions + mismatches) / len(expected)
-    tp = matches / len(expected)
+    tp = matches / al_len
     return dict(ref=field_name, expected=expected, found=found, tp=tp, fp=fp, fn=fn)
 
 
