@@ -8,6 +8,7 @@ outdir <- "data/4_analysis"
 
 load_tables <- function(indir) {
   result_files <- list.files(indir,pattern="results.*csv",full.names=TRUE)
+  cat("Loading files: ", paste(result_files, collapse=", "), "\n")
   result_tables <- lapply(result_files, read.csv) |>
     lapply(\(tbl) {
       #remove extra columns from pandas
@@ -438,11 +439,11 @@ list(
     idx="gpt:raw1|gemma:raw1"
   ),
   list(
-    question="Is GPT better than Mistral on raw text?",
+    question="Is GPT worse than Mistral on raw text?",
     p=with(score_data,wilcox.test(
       f1[which(tool=="mistral-small3.1:latest" & prompt=="one_shot" & modality=="raw_text" & quality=="original")],
       f1[which(tool=="gpt-4.1-mini" & prompt=="one_shot" & modality=="raw_text" & quality=="original")],
-      paired=TRUE,alternative="less"
+      paired=TRUE,alternative="greater"
     ))$p.value,
     idx="gpt:raw1|mistral:raw1"
   ),
@@ -467,11 +468,11 @@ list(
   list(
     question="Is GPT/image better than Mistral/image on distressed docs?",
     p=with(score_data,wilcox.test(
-      f1[which(tool=="mistral-small3.1:latest" & prompt=="one_shot" & modality=="image" & quality=="distressed")],
+      f1[which(tool=="mistral-small3.1:latest" & prompt=="zero_shot" & modality=="image" & quality=="distressed")],
       f1[which(tool=="gpt-4.1-mini" & prompt=="one_shot" & modality=="image" & quality=="distressed")],
       paired=TRUE,alternative="less"
     ))$p.value,
-    idx="gpt:img1|mistral:img1"
+    idx="gpt:img1|mistral:img0"
   )
 ) |> as.df() -> pvals
 pvals$q <- p.adjust(pvals$p, method="fdr")
